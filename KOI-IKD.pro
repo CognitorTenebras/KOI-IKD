@@ -6,7 +6,7 @@
 
 QT       += core gui
 
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+QT += widgets
 
 TARGET = KOI-IKD
 TEMPLATE = app
@@ -17,6 +17,9 @@ SOURCES += main.cpp\
     view.cpp
 
 HEADERS  += mainwindow.h \
-    view.h
+    view.h \
+    fvcamerastateinfo.h \
+    fvtypes.h \
+    MovieFileParams.h
 
 FORMS    += mainwindow.ui

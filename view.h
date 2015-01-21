@@ -6,9 +6,39 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QFile>
+#include <QFileDevice>
 #include <QList>
+#include <QRadioButton>
+
+
+#include "fvcamerastateinfo.h"
 
 using namespace std;
+
+struct sectorsS
+{
+    qint64 frameNum;
+    quint32 Y;
+    qint32 dX;
+};
+
+struct halfFinishedS
+{
+    explicit halfFinishedS():sectors(0){}
+    explicit halfFinishedS(int sectorsCount)
+    {
+        sectors = new sectorsS[sectorsCount];
+    }
+    ~halfFinishedS()
+    {
+        if(sectors)
+            free(sectors);
+    }
+
+    quint32 Xmin,Xmax;
+    sectorsS *sectors;
+};
+
 
 class view : public QWidget
 {
@@ -18,8 +48,12 @@ public:
 
 private:
 
-    QLabel *lbl;
+    QLabel *lbl, *lblbw, *lblpse;
     QPushButton *fileButton;
+    QRadioButton *rbw, *rpse;
+    QString FileName;
+
+    //bool color;
 
     struct frameInfo
     {
@@ -69,14 +103,12 @@ private:
     static const qint32 ver = 0x03042012;
     static const int    maxSizes = 8;
 
-    QString FileName;
+
 
     vector<fInfo*> idxs;
     qint64 *framesPos;
     qint64 indexStartPos;
     qint64 frameStartPos;
-
-    //FVCameraStateInfo cameraStateHeader;
 
     QByteArray fpnBuffer;
     QByteArray commentBuffer;
@@ -84,19 +116,38 @@ private:
 
     int totalFrames;
 
-    //filterParamsS * parameters;
-    //Params * parametersW;
-
     quint32 numSectors;
     quint16 *sectors;
+
+    FVCameraStateInfo cameraStateHeader;
 
     QFile FVRFile;
     uchar *fmap;
 
-signals:
+
+
+    int delta;
+    int h, w;
+    QList<halfFinishedS> preResult;
+    int fromUPdoDOWN;
+    int processedImgs;
+
+    quint32 direction;
+
+    uchar *tmpImg0,*tmpImg1;
+
+    uchar *map;
+    FVCameraStateInfo *fileInfo;
+    QImage *image;
 
 public slots:
     void open();
+    void source(uchar *map, int totalFrames, qint64 *framesPos, FVCameraStateInfo *fileInfo);
+    void setColor();
+
+    //void rbwClicked();
+    //void rpseClicked();
+
 
 
 };
