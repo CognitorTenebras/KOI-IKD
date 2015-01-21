@@ -53,8 +53,6 @@ private:
     QRadioButton *rbw, *rpse;
     QString FileName;
 
-    //bool color;
-
     struct frameInfo
     {
         int gNumber;
@@ -90,7 +88,6 @@ private:
         }
     };
 
-
     static const int maxFrameNumber = 65536;
     static const int frameInfoSize  = sizeof(frameInfo);
     static const int indexBufferSize = maxFrameNumber*frameInfoSize;
@@ -102,8 +99,6 @@ private:
     //
     static const qint32 ver = 0x03042012;
     static const int    maxSizes = 8;
-
-
 
     vector<fInfo*> idxs;
     qint64 *framesPos;
@@ -144,12 +139,6 @@ public slots:
     void open();
     void source(uchar *map, int totalFrames, qint64 *framesPos, FVCameraStateInfo *fileInfo);
     void setColor();
-
-    //void rbwClicked();
-    //void rpseClicked();
-
-
-
 };
 
 #endif // VIEW_H

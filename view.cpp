@@ -23,11 +23,9 @@ view::view(QWidget *parent) :
 
     QHBoxLayout *hlayout= new QHBoxLayout;
     QVBoxLayout *vlayout = new QVBoxLayout;
-    //QGridLayout *grid = new QGridLayout;
 
     lbl = new QLabel(this);
-    //lbl->setGeometry(30,30,200,200);
-    //grid->addWidget(lbl);
+    lbl->setMaximumSize(1280,920);
     fileButton = new QPushButton("Open file");
     fileButton->setMaximumSize(100,30);
 
@@ -62,7 +60,6 @@ void view::open()
     QString FileName;
     bool anotherOne;
     QMessageBox mb;
-    //mb.setText(QString().fromLocal8Bit("Ошибка открытия файла!"));
     mb.setInformativeText(QString().fromLocal8Bit("Открыть другой файл?"));
     mb.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
     mb.setDefaultButton(QMessageBox::Cancel);
@@ -80,7 +77,6 @@ void view::open()
             return;
         }
 
-        //QFile FVRFile(FileName);
         if(FVRFile.isOpen())
         {
             FVRFile.unmap(fmap);
@@ -206,14 +202,6 @@ void view::open()
             else
                 break;
         }
-        /*qDebug("fps: %f, width: %d, height: %d, bpp: %d, compression level: %d, FilledSize: %d, FrameSize: %d",
-               cameraStateHeader.GetFPS(),cameraStateHeader.GetAcqWidth(),cameraStateHeader.GetAcqHeight(),cameraStateHeader.GetBPP(),
-               cameraStateHeader.GetCompressionLevel(),cameraStateHeader.GetFilledSize(),cameraStateHeader.GetFrameSize());*/
-        /*cameraStateHeader.QPrintAll();
-        QDateTime dt;
-        dt.setMSecsSinceEpoch(cameraStateHeader.GetTimeMsec());
-        qDebug() << dt.toString();*/
-
         if(sizes[3])
         {
             fileStream >> rsize;
@@ -226,12 +214,7 @@ void view::open()
                     break;
             }
             fileStream >> fpnBuffer;
-            /*qDebug("fpn size: %d",sizes[3]);//1310776 - чуть больше метра
-            QFile f_out("fpn.bin");
-            f_out.open(QIODevice::WriteOnly);
-            f_out.write(fpnBuffer);
-            f_out.close();*/
-        } //else qDebug("fpn info is absent");
+        }
 
         if(sizes[4])
         {
@@ -245,7 +228,7 @@ void view::open()
                     break;
             }
             fileStream >> commentBuffer;
-        } //else qDebug("comments are absent");
+        }
 
         if(sizes[5])
         {
@@ -259,8 +242,7 @@ void view::open()
                     break;
             }
             fileStream >> cameraName;
-            //qDebug("camera name: %s",cameraName.data());
-        } //else qDebug("camera name is absent");
+        }
 
         fileStream >> indexStartPos;
         fileStream >> frameStartPos;
@@ -320,20 +302,11 @@ void view::open()
                     break;
                 //
                 int bsize = fInfoSize*fCnt;
-                //size_t size0 = idxs.size();
-                //
-                //indexBuffer->resize(bsize+size0);
                 idxs.push_back(new fInfo());
                 idxs.back()->frames = (frameInfo*)calloc(fCnt,fInfoSize);
                 idxs.back()->size = fCnt;
-                //indexBufferPtr = &indexBuffer[size0];
-                //
-                //if( fileStream.readRawData(&indexBuffer[0][size0],bsize) != bsize )
                 if(fileStream.readRawData((char*)(idxs.back()->frames),bsize) != bsize )
                 {
-                    //qDebug("Can\'t read index!");
-                    //не смогли прочитать даже индекс => изображений точно не будет
-                    //indexBuffer->resize(size0);
                     free(idxs.back()->frames);
                     idxs.pop_back();
                     break;
@@ -344,7 +317,6 @@ void view::open()
                 {
                     if( indexFrames[0].pos != frameStartPos )
                     {
-                        //qDebug("File is broken!");
                         mb.setText(QString().fromLocal8Bit("Ошибка формата файла!"));
                         if(mb.exec()==QMessageBox::Ok)
                             anotherOne = true;
@@ -364,7 +336,6 @@ void view::open()
                         {
                             failedFrames++;
                         }
-                        //indexBuffer->resize(bsize+size0-(failedFrames*fInfoSize));
                         idxs.back()->size -= failedFrames;
                         totalFrames -= failedFrames;
                         break;
@@ -426,17 +397,7 @@ void view::setColor()
     source(fmap, totalFrames, framesPos, &cameraStateHeader);
 }
 
-/*
-void view::rbwClicked()
-{
-    color=false;
-}
 
-void view::rpseClicked()
-{
-    color=true;
-}
-*/
 
 void view::source(uchar *map, int totalFrames, qint64 *framesPos, FVCameraStateInfo *fileInfo)
 {
@@ -460,13 +421,7 @@ void view::source(uchar *map, int totalFrames, qint64 *framesPos, FVCameraStateI
     }
     bpp = fileInfo->GetBPP();
     tmp = h*w*bpp/4;
-    /*
-    if(tmpImg0)
-    {
-        free(tmpImg0);
-        free(tmpImg1);
-    }
-    */
+
     tmpImg0 = (uchar*)calloc(tmp,4);
     tmpImg1 = (uchar*)calloc(tmp,4);
 
@@ -507,11 +462,7 @@ void view::source(uchar *map, int totalFrames, qint64 *framesPos, FVCameraStateI
         image->setColorTable(colorTable);
     }
 
+    lbl->setPixmap(QPixmap::fromImage(*image));
 
-
-        lbl->setPixmap(QPixmap::fromImage(*image));
-
-        delete image;
-
-
+    delete image;
 }
