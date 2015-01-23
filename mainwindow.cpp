@@ -11,12 +11,12 @@ MainWindow::MainWindow(QWidget *parent) :
 
     QHBoxLayout *hl= new QHBoxLayout;
     v = new view;
-
     hl->addWidget(v);
     ui->centralWidget->setLayout(hl);
 }
 
 MainWindow::~MainWindow()
 {
+    delete v;
     delete ui;
 }

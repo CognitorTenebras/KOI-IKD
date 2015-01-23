@@ -25,18 +25,24 @@ view::view(QWidget *parent) :
     QVBoxLayout *vlayout = new QVBoxLayout;
 
     lbl = new QLabel(this);
-    lbl->setMaximumSize(1280,920);
-    fileButton = new QPushButton("Open file");
+    lbl->setMaximumSize(384,288);
+    fileButton = new QPushButton("Open Source");
     fileButton->setMaximumSize(100,30);
+    imgOpen = new QPushButton("Open Image");
+    imgOpen->setMaximumSize(100,30);
+    imgSave = new QPushButton("Save Image");
+    imgSave->setMaximumSize(100,30);
 
     rbw = new QRadioButton("Black and White",this);
     rbw->setChecked(true);
     rpse = new QRadioButton("PseudoColor", this);
 
-
     vlayout->addWidget(fileButton);
     vlayout->addWidget(rbw);
     vlayout->addWidget(rpse);
+    vlayout->addStretch();
+    vlayout->addWidget(imgOpen);
+    vlayout->addWidget(imgSave);
 
     hlayout->addWidget(lbl);
     hlayout->addStretch();
@@ -45,8 +51,19 @@ view::view(QWidget *parent) :
     this->setLayout(hlayout);
 
     connect(fileButton,SIGNAL(clicked()),this,SLOT(open()));
+    connect(imgSave,SIGNAL(clicked()),this,SLOT(saveImage()));
+    connect(imgOpen,SIGNAL(clicked()),this,SLOT(openImage()));
     connect(rbw,SIGNAL(clicked()),this,SLOT(setColor()));
     connect(rpse,SIGNAL(clicked()),this,SLOT(setColor()));
+}
+
+view::~view()
+{
+    if(tmpImg0)
+    {
+        free(tmpImg0);
+        free(tmpImg1);
+    }
 }
 
 void view::open()
@@ -465,4 +482,24 @@ void view::source(uchar *map, int totalFrames, qint64 *framesPos, FVCameraStateI
     lbl->setPixmap(QPixmap::fromImage(*image));
 
     delete image;
+}
+
+void view::saveImage()
+{
+    QString imageName = QFileDialog::getSaveFileName(this,QString().fromLocal8Bit("Сохранить изображение"),QString().fromLocal8Bit("C:\\"),
+                                                          QString().fromLocal8Bit("Изображение (*.jpg"));
+    if(imageName!="")
+            lbl->pixmap()->save(imageName,"JPG");
+}
+
+void view::openImage()
+{
+    QString imageName = QFileDialog::getOpenFileName(this,QString().fromLocal8Bit("Открыть изображение"),QString().fromLocal8Bit("C:\\"),
+                                                          QString().fromLocal8Bit("Изображение (*.jpg)"));
+     if(imageName!="")
+     {
+         QPixmap *pix=new QPixmap;
+         pix->load(imageName);
+            lbl->setPixmap(*pix);
+     }
 }

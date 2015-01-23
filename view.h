@@ -45,11 +45,14 @@ class view : public QWidget
     Q_OBJECT
 public:
     explicit view(QWidget *parent = 0);
+    ~view();
 
 private:
 
     QLabel *lbl, *lblbw, *lblpse;
     QPushButton *fileButton;
+    QPushButton *imgSave;
+    QPushButton *imgOpen;
     QRadioButton *rbw, *rpse;
     QString FileName;
 
@@ -119,8 +122,6 @@ private:
     QFile FVRFile;
     uchar *fmap;
 
-
-
     int delta;
     int h, w;
     QList<halfFinishedS> preResult;
@@ -139,6 +140,8 @@ public slots:
     void open();
     void source(uchar *map, int totalFrames, qint64 *framesPos, FVCameraStateInfo *fileInfo);
     void setColor();
+    void saveImage();
+    void openImage();
 };
 
 #endif // VIEW_H
