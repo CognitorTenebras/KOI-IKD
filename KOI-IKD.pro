@@ -23,3 +23,7 @@ HEADERS  += mainwindow.h \
     MovieFileParams.h
 
 FORMS    += mainwindow.ui
+
+OTHER_FILES += \
+    befor.jpg \
+    next.jpg

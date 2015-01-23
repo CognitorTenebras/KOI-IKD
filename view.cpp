@@ -39,11 +39,11 @@ view::view(QWidget *parent) :
 
     nextBut = new QPushButton;
     nextBut->setMaximumSize(30,30);
-    nextBut->setIcon(QIcon("./next.jpg"));
+    nextBut->setIcon(QIcon("next.jpg"));
 
     beforBut = new QPushButton;
     beforBut->setMaximumSize(30,30);
-    beforBut->setIcon(QIcon("./befor.jpg"));
+    beforBut->setIcon(QIcon("befor.jpg"));
 
     cadrlayout->addWidget(lblcadr);
     cadrlayout->addWidget(beforBut);
