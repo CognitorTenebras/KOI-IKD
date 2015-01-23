@@ -17,12 +17,13 @@ view::view(QWidget *parent) :
     totalFrames = 0;
     framesPos = 0;
     sectors = 0;
-
-
     tmpImg0 = 0; tmpImg1 = 0;
+
+    cadr=0;
 
     QHBoxLayout *hlayout= new QHBoxLayout;
     QVBoxLayout *vlayout = new QVBoxLayout;
+    QHBoxLayout *cadrlayout = new QHBoxLayout;
 
     lbl = new QLabel(this);
     lbl->setMaximumSize(384,288);
@@ -33,6 +34,21 @@ view::view(QWidget *parent) :
     imgSave = new QPushButton("Save Image");
     imgSave->setMaximumSize(100,30);
 
+    lblcadr = new QLabel;
+    lblcadr->setNum(cadr);
+
+    nextBut = new QPushButton;
+    nextBut->setMaximumSize(30,30);
+    nextBut->setIcon(QIcon("./next.jpg"));
+
+    beforBut = new QPushButton;
+    beforBut->setMaximumSize(30,30);
+    beforBut->setIcon(QIcon("./befor.jpg"));
+
+    cadrlayout->addWidget(lblcadr);
+    cadrlayout->addWidget(beforBut);
+    cadrlayout->addWidget(nextBut);
+
     rbw = new QRadioButton("Black and White",this);
     rbw->setChecked(true);
     rpse = new QRadioButton("PseudoColor", this);
@@ -40,6 +56,7 @@ view::view(QWidget *parent) :
     vlayout->addWidget(fileButton);
     vlayout->addWidget(rbw);
     vlayout->addWidget(rpse);
+    vlayout->addLayout(cadrlayout);
     vlayout->addStretch();
     vlayout->addWidget(imgOpen);
     vlayout->addWidget(imgSave);
@@ -55,6 +72,10 @@ view::view(QWidget *parent) :
     connect(imgOpen,SIGNAL(clicked()),this,SLOT(openImage()));
     connect(rbw,SIGNAL(clicked()),this,SLOT(setColor()));
     connect(rpse,SIGNAL(clicked()),this,SLOT(setColor()));
+    connect(nextBut,SIGNAL(clicked()),this,SLOT(nextCadr()));
+    connect(beforBut,SIGNAL(clicked()),this,SLOT(beforCadr()));
+
+
 }
 
 view::~view()
@@ -402,7 +423,6 @@ void view::open()
         free(indexMagicIdTest);
         //FVRFile.close();
         fmap = FVRFile.map(0,FVRFile.size());
-        qDebug("%d",fmap);
         break;
     }
 
@@ -442,27 +462,22 @@ void view::source(uchar *map, int totalFrames, qint64 *framesPos, FVCameraStateI
     tmpImg0 = (uchar*)calloc(tmp,4);
     tmpImg1 = (uchar*)calloc(tmp,4);
 
+    QVector<QRgb> colorTable(256);//550nm: 380+160
+    FVRFile.seek(framesPos[cadr]);
+    FVRFile.read((char*)tmpImg0,h*w);
+    image = new QImage(tmpImg0,w,h,QImage::Format_Indexed8);
+
 
     if (rbw->isChecked()==true)
     {
-        QVector<QRgb> colorTable(256);//550nm: 380+160
-        colorTable[0]=0xFF000000;
-        FVRFile.seek(framesPos[0]);
-        FVRFile.read((char*)tmpImg0,h*w);
-        image = new QImage(tmpImg0,w,h,QImage::Format_Indexed8);
-        for(int i=1;i<256;i++)
+        for(int i=0;i<256;i++)
         {
             colorTable[i] =  0xFF000000|((uchar)(i)<<16)|((uchar)(i)<<8)|(uchar)(i);
-
         }
-        image->setColorTable(colorTable);
     }
     if (rpse->isChecked()==true)
     {
-        QVector<QRgb> colorTable(256);//550nm: 380+160
-        FVRFile.seek(framesPos[0]);
-        FVRFile.read((char*)tmpImg0,h*w);
-        image = new QImage(tmpImg0,w,h,QImage::Format_Indexed8);
+
         for(int i=0;i<42;i++)
             colorTable[i] =  0xFF000000|((uchar)(0)<<16)|((uchar)(0)<<8)|(uchar)(200+i);
         for(int i=0;i<42;i++)
@@ -476,9 +491,8 @@ void view::source(uchar *map, int totalFrames, qint64 *framesPos, FVCameraStateI
         for(int i=0;i<42;i++)
             colorTable[214+i] =  0xFF000000|((uchar)(200+i)<<16)|((uchar)(0)<<8)|(uchar)(0);
 
-        image->setColorTable(colorTable);
     }
-
+    image->setColorTable(colorTable);
     lbl->setPixmap(QPixmap::fromImage(*image));
 
     delete image;
@@ -502,4 +516,20 @@ void view::openImage()
          pix->load(imageName);
             lbl->setPixmap(*pix);
      }
+}
+
+void view::nextCadr()
+{
+    if(cadr>=0&&cadr<totalFrames)
+        cadr++;
+    source(fmap, totalFrames, framesPos, &cameraStateHeader);
+    lblcadr->setNum(cadr);
+}
+
+void view::beforCadr()
+{
+    if(cadr>0&&cadr<=totalFrames)
+        cadr--;
+    source(fmap, totalFrames, framesPos, &cameraStateHeader);
+    lblcadr->setNum(cadr);
 }

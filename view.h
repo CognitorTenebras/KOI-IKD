@@ -49,12 +49,18 @@ public:
 
 private:
 
-    QLabel *lbl, *lblbw, *lblpse;
+    QLabel *lbl, *lblbw, *lblpse, *lblcadr;
     QPushButton *fileButton;
     QPushButton *imgSave;
     QPushButton *imgOpen;
+    QPushButton *nextBut;
+    QPushButton *beforBut;
+
+
     QRadioButton *rbw, *rpse;
     QString FileName;
+
+    int cadr;
 
     struct frameInfo
     {
@@ -142,6 +148,8 @@ public slots:
     void setColor();
     void saveImage();
     void openImage();
+    void nextCadr();
+    void beforCadr();
 };
 
 #endif // VIEW_H
