@@ -55,12 +55,14 @@ private:
     QPushButton *imgOpen;
     QPushButton *nextBut;
     QPushButton *beforBut;
-
+    QPushButton *playBut, *stopBut;
 
     QRadioButton *rbw, *rpse;
     QString FileName;
 
     int cadr;
+    bool stream;
+
 
     struct frameInfo
     {
@@ -142,6 +144,9 @@ private:
     FVCameraStateInfo *fileInfo;
     QImage *image;
 
+    void visible(bool Visible);
+    
+
 public slots:
     void open();
     void source(uchar *map, int totalFrames, qint64 *framesPos, FVCameraStateInfo *fileInfo);
@@ -150,6 +155,7 @@ public slots:
     void openImage();
     void nextCadr();
     void beforCadr();
+
 };
 
 #endif // VIEW_H

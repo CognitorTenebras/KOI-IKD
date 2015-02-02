@@ -5,6 +5,8 @@
 #include <QMessageBox>
 #include <QFileDialog>
 #include <QGridLayout>
+#include <QThread>
+#include <QTime>
 
 const char * view::fvlabMagicId  = "FVLAB";
 const char * view::headerMagicId = "FVLABHDR";
@@ -20,6 +22,8 @@ view::view(QWidget *parent) :
     tmpImg0 = 0; tmpImg1 = 0;
 
     cadr=0;
+    stream=false;
+
 
     QHBoxLayout *hlayout= new QHBoxLayout;
     QVBoxLayout *vlayout = new QVBoxLayout;
@@ -44,10 +48,14 @@ view::view(QWidget *parent) :
     beforBut = new QPushButton;
     beforBut->setMaximumSize(30,30);
     beforBut->setIcon(QIcon("befor.jpg"));
-
+    
+    playBut= new QPushButton("Play");
+    stopBut= new QPushButton("Stop");
+    
     cadrlayout->addWidget(lblcadr);
     cadrlayout->addWidget(beforBut);
     cadrlayout->addWidget(nextBut);
+    
 
     rbw = new QRadioButton("Black and White",this);
     rbw->setChecked(true);
@@ -57,6 +65,11 @@ view::view(QWidget *parent) :
     vlayout->addWidget(rbw);
     vlayout->addWidget(rpse);
     vlayout->addLayout(cadrlayout);
+    
+    //vlayout->addStretch();
+    //vlayout->addWidget(playBut);
+    //vlayout->addWidget(stopBut);
+    
     vlayout->addStretch();
     vlayout->addWidget(imgOpen);
     vlayout->addWidget(imgSave);
@@ -74,8 +87,10 @@ view::view(QWidget *parent) :
     connect(rpse,SIGNAL(clicked()),this,SLOT(setColor()));
     connect(nextBut,SIGNAL(clicked()),this,SLOT(nextCadr()));
     connect(beforBut,SIGNAL(clicked()),this,SLOT(beforCadr()));
+    connect(playBut,SIGNAL(clicked()),this,SLOT(play()));
+    connect(stopBut,SIGNAL(clicked()),this,SLOT(stop()));
 
-
+    visible(false);
 }
 
 view::~view()
@@ -98,14 +113,14 @@ void view::open()
     QString FileName;
     bool anotherOne;
     QMessageBox mb;
-    mb.setInformativeText(QString().fromLocal8Bit("Открыть другой файл?"));
+    mb.setInformativeText(QString().fromLocal8Bit("РћС‚РєСЂС‹С‚СЊ РґСЂСѓРіРѕР№ С„Р°Р№Р»?"));
     mb.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
     mb.setDefaultButton(QMessageBox::Cancel);
 
     while(1)
     {
         anotherOne = false;
-        FileName = QFileDialog::getOpenFileName(this,QString().fromLocal8Bit("Открыть FVRawFile"),QString().fromLocal8Bit("C:\\"),
+        FileName = QFileDialog::getOpenFileName(this,QString().fromLocal8Bit("РћС‚РєСЂС‹С‚СЊ FVRawFil"),QString().fromLocal8Bit("C:\\"),
                                                 QString().fromLocal8Bit("FVRaw video (*.fvlab)"));
         if(FileName.isEmpty())
         {
@@ -122,14 +137,14 @@ void view::open()
         }
         FVRFile.setFileName(FileName);
         if(FVRFile.open(QIODevice::ReadOnly)==false)
-            mb.setText(QString().fromLocal8Bit("Ошибка, не удалось открыть\nфайл на чтение!"));
+            mb.setText(QString().fromLocal8Bit("РћС€РёР±РєР°, РЅРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РєСЂС‹С‚СЊ\nС„Р°Р№Р» РЅР° С‡С‚РµРЅРёРµ!"));
 
 
         totalFrames = 0;
 
         if(FVRFile.read(fvlabMagicIdTest,strlen(fvlabMagicId))!=strlen(fvlabMagicId))
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка, не удалось открыть\nфайл на чтение!"));
+            mb.setText(QString().fromLocal8Bit("РћС€РёР±РєР°, РЅРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РєСЂС‹С‚СЊ\nС„Р°Р№Р» РЅР° С‡С‚РµРЅРёРµ!"));
             if(mb.exec()==QMessageBox::Ok)
                 continue;
             else
@@ -138,7 +153,7 @@ void view::open()
         fvlabMagicIdTest[strlen(fvlabMagicId)] = '\0';
         if( ! strcmp(fvlabMagicIdTest,fvlabMagicId) == 0 )
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка, некорректный формат файла!"));
+            mb.setText(QString().fromLocal8Bit("РћС€РёР±РєР°, РЅРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ С„РѕСЂРјР°С‚ С„Р°Р№Р»Р°!"));
             if(mb.exec()==QMessageBox::Ok)
                 continue;
             else
@@ -150,7 +165,7 @@ void view::open()
         fileStream >> fver;
         if( fver != ver )
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка, неизвестная версия\nформата файла (0x%1)!").arg(fver,0,16));
+            mb.setText(QString().fromLocal8Bit("РћС€РёР±РєР°, РЅРµРёР·РІРµСЃС‚РЅР°СЏ РІРµСЂСЃРёСЏ\nС„РѕСЂРјР°С‚Р° С„Р°Р№Р»Р° (0x%1)!").arg(fver,0,16));
             if(mb.exec()==QMessageBox::Ok)
                 continue;
             else
@@ -161,7 +176,7 @@ void view::open()
         fileStream >> nsize;
         if( nsize != maxSizes )
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка внутренней структуры файла!"));
+            mb.setText(QString().fromLocal8Bit("РћС€РёР±РєР° РІРЅСѓС‚СЂРµРЅРЅРµР№ СЃС‚СЂСѓРєС‚СѓСЂС‹ С„Р°Р№Р»Р°!"));
             if(mb.exec()==QMessageBox::Ok)
                 continue;
             else
@@ -176,17 +191,17 @@ void view::open()
             sum += sizes[i];
         if( sum != sizes[1] )
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка внутренней структуры файла!"));
+            mb.setText(QString().fromLocal8Bit("РћС€РёР±РєР° РІРЅСѓС‚СЂРµРЅРЅРµР№ СЃС‚СЂСѓРєС‚СѓСЂС‹ С„Р°Р№Р»Р°!"));
             if(mb.exec()==QMessageBox::Ok)
                 continue;
             else
                 break;
         }
 
-        //Читаем Sizes[2] (заголовок):
+        //РїС—Р…РїС—Р…РїС—Р…РїС—Р…РїС—Р…РїС—Р… Sizes[2] (РїС—Р…РїС—Р…РїС—Р…РїС—Р…РїС—Р…РїС—Р…РїС—Р…РїС—Р…РїС—Р…):
         if(sizes[2]==0)
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка, отсутствует заголовок файла!"));
+            mb.setText(QString().fromLocal8Bit("РћС€РёР±РєР°, РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚ Р·Р°РіРѕР»РѕРІРѕРє С„Р°Р№Р»Р°!"));
             if(mb.exec()==QMessageBox::Ok)
                 continue;
             else
@@ -194,7 +209,7 @@ void view::open()
         }
         if(sizes[2]!=(strlen(headerMagicId) + sizeof(FVCameraStateInfo)))
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка, некорректный размер заголовка файла!"));
+            mb.setText(QString().fromLocal8Bit("РћС€РёР±РєР°, РЅРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ СЂР°Р·РјРµСЂ Р·Р°РіРѕР»РѕРІРєР° С„Р°Р№Р»Р°!"));
             if(mb.exec()==QMessageBox::Ok)
                 continue;
             else
@@ -205,16 +220,16 @@ void view::open()
         fileStream >> rsize;
         if( sizes[2] != rsize )
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка, некорректный размер заголовка файла!"));
+            mb.setText(QString().fromLocal8Bit("РћС€РёР±РєР°, РЅРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ СЂР°Р·РјРµСЂ Р·Р°РіРѕР»РѕРІРєР° С„Р°Р№Р»Р°!"));
             if(mb.exec()==QMessageBox::Ok)
                 continue;
             else
                 break;
         }
-        fileStream >> rsize;//Так надо (данные записаны в QByteArray, содержащий в начале размер (32 разряда))
+        fileStream >> rsize;
         if(FVRFile.read(headerMagicIdTest,strlen(headerMagicId))!=strlen(headerMagicId))
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка, не удалось прочитать\nидентификатор заголовка файла!"));
+            mb.setText(QString().fromLocal8Bit("РћС€РёР±РєР°, РЅРµ СѓРґР°Р»РѕСЃСЊ РїСЂРѕС‡РёС‚Р°С‚СЊ\nРёРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ Р·Р°РіРѕР»РѕРІРєР° С„Р°Р№Р»Р°!"));
             if(mb.exec()==QMessageBox::Ok)
                 continue;
             else
@@ -223,7 +238,7 @@ void view::open()
         headerMagicIdTest[strlen(headerMagicId)] = '\0';
         if( ! strcmp(headerMagicIdTest,headerMagicId) == 0 )
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка, некорректный идентификатор заголовка файла!"));
+            mb.setText(QString().fromLocal8Bit("РћС€РёР±РєР°, РЅРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ РёРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ Р·Р°РіРѕР»РѕРІРєР° С„Р°Р№Р»Р°!"));
             free(headerMagicIdTest);
             if(mb.exec()==QMessageBox::Ok)
                 continue;
@@ -231,10 +246,9 @@ void view::open()
                 break;
         }
         free(headerMagicIdTest);
-        //читаем параметры камеры
         if(FVRFile.read((char*)&cameraStateHeader,sizeof(FVCameraStateInfo))!=sizeof(FVCameraStateInfo))
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка, не удалось прочитать\nзаголовок файла!"));
+            mb.setText(QString().fromLocal8Bit("РћС€РёР±РєР°, РЅРµ СѓРґР°Р»РѕСЃСЊ РїСЂРѕС‡РёС‚Р°С‚СЊ\nР·Р°РіРѕР»РѕРІРѕРє С„Р°Р№Р»Р°!"));
             if(mb.exec()==QMessageBox::Ok)
                 continue;
             else
@@ -245,7 +259,7 @@ void view::open()
             fileStream >> rsize;
             if(rsize!=sizes[3])
             {
-                mb.setText(QString().fromLocal8Bit("Ошибка, некорректный размер\nсекции параметров съёмки!"));
+                mb.setText(QString().fromLocal8Bit("РћС€РёР±РєР°, РЅРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ СЂР°Р·РјРµСЂ\nСЃРµРєС†РёРё РїР°СЂР°РјРµС‚СЂРѕРІ СЃСЉС‘РјРєРё!"));
                 if(mb.exec()==QMessageBox::Ok)
                     continue;
                 else
@@ -259,7 +273,7 @@ void view::open()
             fileStream >> rsize;
             if(rsize!=sizes[4])
             {
-                mb.setText(QString().fromLocal8Bit("Ошибка, некорректный размер\nсекции комментариев!"));//битый файл
+                mb.setText(QString().fromLocal8Bit("РћС€РёР±РєР°, РЅРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ СЂР°Р·РјРµСЂ\nСЃРµРєС†РёРё РєРѕРјРјРµРЅС‚Р°СЂРёРµРІ!"));
                 if(mb.exec()==QMessageBox::Ok)
                     continue;
                 else
@@ -273,7 +287,7 @@ void view::open()
             fileStream >> rsize;
             if(rsize!=sizes[5])
             {
-                mb.setText(QString().fromLocal8Bit("Ошибка, некорректный размер\nсекции названия камеры!"));//битый файл
+                mb.setText(QString().fromLocal8Bit("РћС€РёР±РєР°, РЅРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ СЂР°Р·РјРµСЂ\nСЃРµРєС†РёРё РЅР°Р·РІР°РЅРёСЏ РєР°РјРµСЂС‹!"));
                 if(mb.exec()==QMessageBox::Ok)
                     continue;
                 else
@@ -288,7 +302,7 @@ void view::open()
         //
         if(FVRFile.read(indexMagicIdTest,strlen(indexMagicId))!=strlen(indexMagicId))
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка, не удалось прочитать\nидентификатор секции индексов!"));
+            mb.setText(QString().fromLocal8Bit("РћС€РёР±РєР°, РЅРµ СѓРґР°Р»РѕСЃСЊ РїСЂРѕС‡РёС‚Р°С‚СЊ\nРёРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ СЃРµРєС†РёРё РёРЅРґРµРєСЃРѕРІ!"));
             if(mb.exec()==QMessageBox::Ok)
                 continue;
             else
@@ -297,7 +311,7 @@ void view::open()
         indexMagicIdTest[strlen(indexMagicId)] = '\0';
         if( ! strcmp(indexMagicIdTest,indexMagicId) == 0 )
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка, некорректный идентификатор секции индексов!"));
+            mb.setText(QString().fromLocal8Bit("РћС€РёР±РєР°, РЅРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ РёРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ СЃРµРєС†РёРё РёРЅРґРµРєСЃРѕРІ!"));
             if(mb.exec()==QMessageBox::Ok)
                 continue;
             else
@@ -318,9 +332,7 @@ void view::open()
 
         if(FVRFile.seek(indexStartPos))
         {
-            //цикл чтения индексов, если после последнего индексированного элемента еще остается место в файле,
-            //перемещаемся туда и продолжаем чтение индексов (и так до конца)
-            while(FVRFile.pos()<FVRFile.size())
+           while(FVRFile.pos()<FVRFile.size())
             {
                 if(FVRFile.read(indexMagicIdTest,strlen(indexMagicId))!=strlen(indexMagicId))
                     break;
@@ -355,7 +367,7 @@ void view::open()
                 {
                     if( indexFrames[0].pos != frameStartPos )
                     {
-                        mb.setText(QString().fromLocal8Bit("Ошибка формата файла!"));
+                        mb.setText(QString().fromLocal8Bit("РћС€РёР±РєР° С„РѕСЂРјР°С‚Р° С„Р°Р№Р»Р°!"));
                         if(mb.exec()==QMessageBox::Ok)
                             anotherOne = true;
                         break;
@@ -388,7 +400,7 @@ void view::open()
 
             if(totalFrames==0)
             {
-                mb.setText(QString().fromLocal8Bit("Ошибка, файл не содержит кадров!"));
+                mb.setText(QString().fromLocal8Bit("РћС€РёР±РєР°, С„Р°Р№Р» РЅРµ СЃРѕРґРµСЂР¶РёС‚ РєР°РґСЂРѕРІ!"));
                 if(mb.exec()==QMessageBox::Ok)
                     continue;
                 else
@@ -427,6 +439,7 @@ void view::open()
     }
 
       source(fmap, totalFrames, framesPos, &cameraStateHeader);
+      visible(true);
 }
 
 void view::setColor()
@@ -447,7 +460,7 @@ void view::source(uchar *map, int totalFrames, qint64 *framesPos, FVCameraStateI
 
     this->framesPos = framesPos;
     this->fileInfo = fileInfo;
-    if(direction&2)//если движемся по горизонтали (поворачиваемся на 90 градусов)
+    if(direction&2)
     {
         w = fileInfo->GetAcqHeight();
         h = fileInfo->GetAcqWidth();
@@ -462,7 +475,7 @@ void view::source(uchar *map, int totalFrames, qint64 *framesPos, FVCameraStateI
     tmpImg0 = (uchar*)calloc(tmp,4);
     tmpImg1 = (uchar*)calloc(tmp,4);
 
-    QVector<QRgb> colorTable(256);//550nm: 380+160
+    QVector<QRgb> colorTable(256);
     FVRFile.seek(framesPos[cadr]);
     FVRFile.read((char*)tmpImg0,h*w);
     image = new QImage(tmpImg0,w,h,QImage::Format_Indexed8);
@@ -493,29 +506,31 @@ void view::source(uchar *map, int totalFrames, qint64 *framesPos, FVCameraStateI
 
     }
     image->setColorTable(colorTable);
-    lbl->setPixmap(QPixmap::fromImage(*image));
+    lbl->setPixmap(QPixmap::fromImage(*image).scaled(QSize(384,288)));
 
     delete image;
 }
 
 void view::saveImage()
 {
-    QString imageName = QFileDialog::getSaveFileName(this,QString().fromLocal8Bit("Сохранить изображение"),QString().fromLocal8Bit("C:\\"),
-                                                          QString().fromLocal8Bit("Изображение (*.jpg"));
+    QString imageName = QFileDialog::getSaveFileName(this,QString().fromLocal8Bit("Р’С‹Р±РµСЂРёС‚Рµ С„Р°Р№Р» РґР»СЏ СЃРѕС…СЂР°РЅРµРЅРёСЏ"),QString().fromLocal8Bit("C:\\"),
+                                                          QString().fromLocal8Bit("РР·РѕР±СЂР°Р¶РµРЅРёРµ (*.jpg"));
     if(imageName!="")
             lbl->pixmap()->save(imageName,"JPG");
+
 }
 
 void view::openImage()
 {
-    QString imageName = QFileDialog::getOpenFileName(this,QString().fromLocal8Bit("Открыть изображение"),QString().fromLocal8Bit("C:\\"),
-                                                          QString().fromLocal8Bit("Изображение (*.jpg)"));
+    QString imageName = QFileDialog::getOpenFileName(this,QString().fromLocal8Bit("Р’С‹Р±РµСЂРёС‚Рµ С„Р°Р№Р»"),QString().fromLocal8Bit("C:\\"),
+                                                          QString().fromLocal8Bit("РР·РѕР±СЂР°Р¶РµРЅРёРµ (*.jpg)"));
      if(imageName!="")
      {
          QPixmap *pix=new QPixmap;
          pix->load(imageName);
             lbl->setPixmap(*pix);
      }
+     visible(false);
 }
 
 void view::nextCadr()
@@ -533,3 +548,24 @@ void view::beforCadr()
     source(fmap, totalFrames, framesPos, &cameraStateHeader);
     lblcadr->setNum(cadr);
 }
+
+void view::visible(bool Visible)
+{
+    if(Visible==0)
+    {
+        imgSave->setEnabled(false);
+        nextBut->setEnabled(false);
+        beforBut->setEnabled(false);
+        rbw->setEnabled(false);
+        rpse->setEnabled(false);
+    }
+    else
+    {
+        imgSave->setEnabled(true);
+        nextBut->setEnabled(true);
+        beforBut->setEnabled(true);
+        rbw->setEnabled(true);
+        rpse->setEnabled(true);
+    }
+}
+
