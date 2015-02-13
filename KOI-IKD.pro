@@ -26,4 +26,6 @@ FORMS    += mainwindow.ui
 
 OTHER_FILES += \
     befor.jpg \
-    next.jpg
+    next.jpg \
+    play.jpg \
+    stop.jpg

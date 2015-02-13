@@ -9,6 +9,7 @@
 #include <QFileDevice>
 #include <QList>
 #include <QRadioButton>
+#include <QCloseEvent>
 
 
 #include "fvcamerastateinfo.h"
@@ -49,13 +50,14 @@ public:
 
 private:
 
-    QLabel *lbl, *lblbw, *lblpse, *lblcadr;
     QPushButton *fileButton;
+    QLabel *lbl, *lblbw, *lblpse, *lblcadr, *lblconnection;
+    QPushButton *startStreamButton, *stopStreamButton;
+
     QPushButton *imgSave;
     QPushButton *imgOpen;
-    QPushButton *nextBut;
-    QPushButton *beforBut;
-    QPushButton *playBut, *stopBut;
+
+    QPushButton *openVideoBut, *playVideoBut, *stopVideoBut, *nextBut, *beforBut;
 
     QRadioButton *rbw, *rpse;
     QString FileName;
@@ -144,8 +146,15 @@ private:
     FVCameraStateInfo *fileInfo;
     QImage *image;
 
-    void visible(bool Visible);
-    
+    void enable(bool Visible);
+    void enableStream(bool Visible);
+    void enableVideo(bool Visible);
+
+protected:
+    void closeEvent(QCloseEvent *event);
+
+signals:
+    void closed();
 
 public slots:
     void open();
@@ -155,6 +164,7 @@ public slots:
     void openImage();
     void nextCadr();
     void beforCadr();
+    void streamConnection();
 
 };
 

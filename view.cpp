@@ -25,60 +25,97 @@ view::view(QWidget *parent) :
     stream=false;
 
 
-    QHBoxLayout *hlayout= new QHBoxLayout;
-    QVBoxLayout *vlayout = new QVBoxLayout;
-    QHBoxLayout *cadrlayout = new QHBoxLayout;
+    QHBoxLayout *mainlayout= new QHBoxLayout;//главный layout
+    QVBoxLayout *videolayout = new QVBoxLayout;//виджеты одного кадра
+    QVBoxLayout *streamlayout = new QVBoxLayout;//виджеты работы с потоком
 
-    lbl = new QLabel(this);
+
+    lbl = new QLabel(this);//вывод кадров
     lbl->setMaximumSize(384,288);
-    fileButton = new QPushButton("Open Source");
-    fileButton->setMaximumSize(100,30);
-    imgOpen = new QPushButton("Open Image");
-    imgOpen->setMaximumSize(100,30);
-    imgSave = new QPushButton("Save Image");
-    imgSave->setMaximumSize(100,30);
 
-    lblcadr = new QLabel;
+    fileButton = new QPushButton("Open Source");//открытие кадров
+    fileButton->setMaximumSize(100,30);
+    lblconnection = new QLabel;
+    lblconnection->setText("Connection...");
+    startStreamButton = new QPushButton("Start");
+    startStreamButton->setMaximumSize(100,30);
+    stopStreamButton = new QPushButton("Stop");
+    stopStreamButton->setMaximumSize(100,30);
+
+    streamlayout->addWidget(lblconnection);
+    streamlayout->addWidget(startStreamButton);
+    streamlayout->addWidget(stopStreamButton);
+
+
+    QHBoxLayout *cadrslayout = new QHBoxLayout; //расположение виджетов для потока кадров
+    openVideoBut = new QPushButton("Open Video File");
+    openVideoBut->setMaximumSize(100,30);
+    lblcadr = new QLabel; //номер кадра
     lblcadr->setNum(cadr);
 
-    nextBut = new QPushButton;
+    nextBut = new QPushButton; //след кадр
     nextBut->setMaximumSize(30,30);
-    nextBut->setIcon(QIcon("next.jpg"));
+    nextBut->setIcon(QIcon("../KOI-IKD/next.jpg"));
 
-    beforBut = new QPushButton;
+    beforBut = new QPushButton; //предыдущий кадр
     beforBut->setMaximumSize(30,30);
-    beforBut->setIcon(QIcon("befor.jpg"));
+    beforBut->setIcon(QIcon("../KOI-IKD/befor.jpg"));
     
-    playBut= new QPushButton("Play");
-    stopBut= new QPushButton("Stop");
+    playVideoBut= new QPushButton;//начать воспроизведение потока
+    playVideoBut->setMaximumSize(30,30);
+    playVideoBut->setIcon(QIcon("../KOI-IKD/play.jpg"));
+
+    stopVideoBut= new QPushButton;//остановить поток
+    stopVideoBut->setMaximumSize(30,30);
+    stopVideoBut->setIcon(QIcon("../KOI-IKD/stop.jpg"));
     
-    cadrlayout->addWidget(lblcadr);
-    cadrlayout->addWidget(beforBut);
-    cadrlayout->addWidget(nextBut);
+    cadrslayout->addWidget(lblcadr);
+    cadrslayout->addWidget(beforBut);
+    cadrslayout->addWidget(playVideoBut);
+    cadrslayout->addWidget(stopVideoBut);
+    cadrslayout->addWidget(nextBut);
+
+
+    imgOpen = new QPushButton("Open Image");//открыть кадр
+    imgOpen->setMaximumSize(100,30);
+    imgSave = new QPushButton("Save Image");//сохранить кадр
+    imgSave->setMaximumSize(100,30);
     
 
-    rbw = new QRadioButton("Black and White",this);
+    rbw = new QRadioButton("Black and White",this); //черно белый вариант
     rbw->setChecked(true);
-    rpse = new QRadioButton("PseudoColor", this);
+    rpse = new QRadioButton("PseudoColor", this); //псевдоцвет
 
-    vlayout->addWidget(fileButton);
-    vlayout->addWidget(rbw);
-    vlayout->addWidget(rpse);
-    vlayout->addLayout(cadrlayout);
-    
-    //vlayout->addStretch();
-    //vlayout->addWidget(playBut);
-    //vlayout->addWidget(stopBut);
-    
-    vlayout->addStretch();
-    vlayout->addWidget(imgOpen);
-    vlayout->addWidget(imgSave);
+    QFrame *hline = new QFrame;
+    hline->setFrameShape(QFrame::HLine);
+    hline->setFrameShadow(QFrame::Sunken);
+    QFrame *hline_1 = new QFrame;
+    hline_1->setFrameShape(QFrame::HLine);
+    hline_1->setFrameShadow(QFrame::Sunken);
+    QFrame *hline_2 = new QFrame;
+    hline_2->setFrameShape(QFrame::HLine);
+    hline_2->setFrameShadow(QFrame::Sunken);
 
-    hlayout->addWidget(lbl);
-    hlayout->addStretch();
-    hlayout->addLayout(vlayout);
+    videolayout->addLayout(streamlayout);
+    videolayout->addWidget(hline);
+    videolayout->addWidget(fileButton);
+    videolayout->addLayout(cadrslayout);
+    videolayout->addWidget(hline_1);
+    videolayout->addWidget(imgOpen);
+    videolayout->addWidget(imgSave);
+    videolayout->addWidget(hline_2);
+    videolayout->addWidget(rbw);
+    videolayout->addWidget(rpse);
 
-    this->setLayout(hlayout);
+
+    QFrame *vline = new QFrame;
+    vline->setFrameShape(QFrame::VLine);
+    vline->setFrameShadow(QFrame::Sunken);
+    mainlayout->addWidget(lbl);
+    mainlayout->addWidget(vline);
+    mainlayout->addLayout(videolayout);
+
+    this->setLayout(mainlayout);
 
     connect(fileButton,SIGNAL(clicked()),this,SLOT(open()));
     connect(imgSave,SIGNAL(clicked()),this,SLOT(saveImage()));
@@ -87,10 +124,10 @@ view::view(QWidget *parent) :
     connect(rpse,SIGNAL(clicked()),this,SLOT(setColor()));
     connect(nextBut,SIGNAL(clicked()),this,SLOT(nextCadr()));
     connect(beforBut,SIGNAL(clicked()),this,SLOT(beforCadr()));
-    connect(playBut,SIGNAL(clicked()),this,SLOT(play()));
-    connect(stopBut,SIGNAL(clicked()),this,SLOT(stop()));
-
-    visible(false);
+    //connect(playVideoBut,SIGNAL(clicked()),this,SLOT(play()));
+    //connect(stopVideoBut,SIGNAL(clicked()),this,SLOT(stop()));
+    streamConnection();
+    enable(false);
 }
 
 view::~view()
@@ -102,8 +139,15 @@ view::~view()
     }
 }
 
+void view::closeEvent(QCloseEvent *event)
+{
+    emit closed();
+    event->accept();
+}
+
 void view::open()
 {
+    enable(false);
     char *fvlabMagicIdTest, *headerMagicIdTest, *indexMagicIdTest/*, *image*/;
     int sizes[maxSizes];
     fvlabMagicIdTest = (char*)malloc(strlen(fvlabMagicId)+1);
@@ -439,7 +483,7 @@ void view::open()
     }
 
       source(fmap, totalFrames, framesPos, &cameraStateHeader);
-      visible(true);
+      enableVideo(true);
 }
 
 void view::setColor()
@@ -530,7 +574,7 @@ void view::openImage()
          pix->load(imageName);
             lbl->setPixmap(*pix);
      }
-     visible(false);
+     enable(false);
 }
 
 void view::nextCadr()
@@ -549,12 +593,16 @@ void view::beforCadr()
     lblcadr->setNum(cadr);
 }
 
-void view::visible(bool Visible)
+void view::enable(bool Visible)
 {
     if(Visible==0)
     {
+        startStreamButton->setEnabled(false);
+        stopStreamButton->setEnabled(false);
         imgSave->setEnabled(false);
         nextBut->setEnabled(false);
+        playVideoBut->setEnabled(false);
+        stopVideoBut->setEnabled(false);
         beforBut->setEnabled(false);
         rbw->setEnabled(false);
         rpse->setEnabled(false);
@@ -562,10 +610,47 @@ void view::visible(bool Visible)
     else
     {
         imgSave->setEnabled(true);
-        nextBut->setEnabled(true);
-        beforBut->setEnabled(true);
         rbw->setEnabled(true);
         rpse->setEnabled(true);
     }
 }
 
+void view::enableVideo(bool Visible)
+{
+    if(Visible==0)
+         enable(false);
+    else
+    {
+        nextBut->setEnabled(true);
+        beforBut->setEnabled(true);
+        playVideoBut->setEnabled(true);
+        stopVideoBut->setEnabled(true);
+        enable(true);
+    }
+}
+
+void view::enableStream(bool Visible)
+{
+    if(Visible==0)
+        enable(false);
+    else
+    {
+        enable(true);
+        startStreamButton->setEnabled(true);
+        stopStreamButton->setEnabled(true);
+    }
+}
+
+void view::streamConnection()
+{
+    if(stream==true)
+    {
+        lblconnection->setText("Connection is done");
+        enableStream(true);
+    }
+    else
+    {
+        lblconnection->setText("No connection");
+        enableStream(false);
+    }
+}
