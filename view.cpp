@@ -24,23 +24,25 @@ view::view(QWidget *parent) :
     cadr=0;
     stream=false;
 
-
+    this->setFixedSize(650,380);
     QHBoxLayout *mainlayout= new QHBoxLayout;//главный layout
     QVBoxLayout *videolayout = new QVBoxLayout;//виджеты одного кадра
     QVBoxLayout *streamlayout = new QVBoxLayout;//виджеты работы с потоком
 
 
     lbl = new QLabel(this);//вывод кадров
-    lbl->setMaximumSize(384,288);
+    lbl->setFixedSize(384,288);
+    //lbl->setMaximumSize(384,288);
 
-    fileButton = new QPushButton("Open Source");//открытие кадров
-    fileButton->setMaximumSize(100,30);
+    fileButton = new QPushButton("Открыть источник");//открытие кадров
+    fileButton->setMaximumSize(160,30);
     lblconnection = new QLabel;
-    lblconnection->setText("Connection...");
-    startStreamButton = new QPushButton("Start");
-    startStreamButton->setMaximumSize(100,30);
-    stopStreamButton = new QPushButton("Stop");
-    stopStreamButton->setMaximumSize(100,30);
+    lblconnection->setFixedSize(200,30);
+    lblconnection->setText("Соединение...");
+    startStreamButton = new QPushButton("Старт");
+    startStreamButton->setMaximumSize(160,30);
+    stopStreamButton = new QPushButton("Стоп");
+    stopStreamButton->setMaximumSize(160,30);
 
     streamlayout->addWidget(lblconnection);
     streamlayout->addWidget(startStreamButton);
@@ -48,8 +50,8 @@ view::view(QWidget *parent) :
 
 
     QHBoxLayout *cadrslayout = new QHBoxLayout; //расположение виджетов для потока кадров
-    openVideoBut = new QPushButton("Open Video File");
-    openVideoBut->setMaximumSize(100,30);
+    openVideoBut = new QPushButton("Открыть видео файл");
+    openVideoBut->setMaximumSize(160,30);
     lblcadr = new QLabel; //номер кадра
     lblcadr->setNum(cadr);
 
@@ -69,22 +71,22 @@ view::view(QWidget *parent) :
     stopVideoBut->setMaximumSize(30,30);
     stopVideoBut->setIcon(QIcon("../KOI-IKD/stop.jpg"));
     
-    cadrslayout->addWidget(lblcadr);
+    //cadrslayout->addWidget(lblcadr);
     cadrslayout->addWidget(beforBut);
     cadrslayout->addWidget(playVideoBut);
     cadrslayout->addWidget(stopVideoBut);
     cadrslayout->addWidget(nextBut);
 
 
-    imgOpen = new QPushButton("Open Image");//открыть кадр
-    imgOpen->setMaximumSize(100,30);
-    imgSave = new QPushButton("Save Image");//сохранить кадр
-    imgSave->setMaximumSize(100,30);
+    imgOpen = new QPushButton("Открыть изображение");//открыть кадр
+    imgOpen->setMaximumSize(160,30);
+    imgSave = new QPushButton("Сохранить изображение");//сохранить кадр
+    imgSave->setMaximumSize(160,30);
     
 
-    rbw = new QRadioButton("Black and White",this); //черно белый вариант
+    rbw = new QRadioButton("Черно-белый",this); //черно белый вариант
     rbw->setChecked(true);
-    rpse = new QRadioButton("PseudoColor", this); //псевдоцвет
+    rpse = new QRadioButton("Псевдоцвет", this); //псевдоцвет
 
     QFrame *hline = new QFrame;
     hline->setFrameShape(QFrame::HLine);
@@ -106,12 +108,14 @@ view::view(QWidget *parent) :
     videolayout->addWidget(hline_2);
     videolayout->addWidget(rbw);
     videolayout->addWidget(rpse);
+    videolayout->addStretch();
 
 
     QFrame *vline = new QFrame;
     vline->setFrameShape(QFrame::VLine);
     vline->setFrameShadow(QFrame::Sunken);
     mainlayout->addWidget(lbl);
+    mainlayout->addStretch();
     mainlayout->addWidget(vline);
     mainlayout->addLayout(videolayout);
 
@@ -157,15 +161,15 @@ void view::open()
     QString FileName;
     bool anotherOne;
     QMessageBox mb;
-    mb.setInformativeText(QString().fromLocal8Bit("Открыть другой файл?"));
+    mb.setInformativeText("Открыть другой файл?");
     mb.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
     mb.setDefaultButton(QMessageBox::Cancel);
 
     while(1)
     {
         anotherOne = false;
-        FileName = QFileDialog::getOpenFileName(this,QString().fromLocal8Bit("Открыть FVRawFil"),QString().fromLocal8Bit("C:\\"),
-                                                QString().fromLocal8Bit("FVRaw video (*.fvlab)"));
+        FileName = QFileDialog::getOpenFileName(this,"Открыть FVRawFil",QString().fromLocal8Bit("C:\\"),
+                                                "FVRaw video (*.fvlab)");
         if(FileName.isEmpty())
         {
             free(fvlabMagicIdTest);
@@ -181,14 +185,14 @@ void view::open()
         }
         FVRFile.setFileName(FileName);
         if(FVRFile.open(QIODevice::ReadOnly)==false)
-            mb.setText(QString().fromLocal8Bit("Ошибка, не удалось открыть\nфайл на чтение!"));
+            mb.setText("Ошибка, не удалось открыть\nфайл на чтение!");
 
 
         totalFrames = 0;
 
         if(FVRFile.read(fvlabMagicIdTest,strlen(fvlabMagicId))!=strlen(fvlabMagicId))
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка, не удалось открыть\nфайл на чтение!"));
+            mb.setText("Ошибка, не удалось открыть\nфайл на чтение!");
             if(mb.exec()==QMessageBox::Ok)
                 continue;
             else
@@ -197,7 +201,7 @@ void view::open()
         fvlabMagicIdTest[strlen(fvlabMagicId)] = '\0';
         if( ! strcmp(fvlabMagicIdTest,fvlabMagicId) == 0 )
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка, некорректный формат файла!"));
+            mb.setText("Ошибка, некорректный формат файла!");
             if(mb.exec()==QMessageBox::Ok)
                 continue;
             else
@@ -209,7 +213,7 @@ void view::open()
         fileStream >> fver;
         if( fver != ver )
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка, неизвестная версия\nформата файла (0x%1)!").arg(fver,0,16));
+            mb.setText(QString("Ошибка, неизвестная версия\nформата файла (0x%1)!").arg(fver,0,16));
             if(mb.exec()==QMessageBox::Ok)
                 continue;
             else
@@ -220,7 +224,7 @@ void view::open()
         fileStream >> nsize;
         if( nsize != maxSizes )
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка внутренней структуры файла!"));
+            mb.setText("Ошибка внутренней структуры файла!");
             if(mb.exec()==QMessageBox::Ok)
                 continue;
             else
@@ -235,7 +239,7 @@ void view::open()
             sum += sizes[i];
         if( sum != sizes[1] )
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка внутренней структуры файла!"));
+            mb.setText("Ошибка внутренней структуры файла!");
             if(mb.exec()==QMessageBox::Ok)
                 continue;
             else
@@ -245,7 +249,7 @@ void view::open()
         //пїЅпїЅпїЅпїЅпїЅпїЅ Sizes[2] (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ):
         if(sizes[2]==0)
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка, отсутствует заголовок файла!"));
+            mb.setText("Ошибка, отсутствует заголовок файла!");
             if(mb.exec()==QMessageBox::Ok)
                 continue;
             else
@@ -253,7 +257,7 @@ void view::open()
         }
         if(sizes[2]!=(strlen(headerMagicId) + sizeof(FVCameraStateInfo)))
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка, некорректный размер заголовка файла!"));
+            mb.setText("Ошибка, некорректный размер заголовка файла!");
             if(mb.exec()==QMessageBox::Ok)
                 continue;
             else
@@ -264,7 +268,7 @@ void view::open()
         fileStream >> rsize;
         if( sizes[2] != rsize )
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка, некорректный размер заголовка файла!"));
+            mb.setText("Ошибка, некорректный размер заголовка файла!");
             if(mb.exec()==QMessageBox::Ok)
                 continue;
             else
@@ -273,7 +277,7 @@ void view::open()
         fileStream >> rsize;
         if(FVRFile.read(headerMagicIdTest,strlen(headerMagicId))!=strlen(headerMagicId))
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка, не удалось прочитать\nидентификатор заголовка файла!"));
+            mb.setText("Ошибка, не удалось прочитать\nидентификатор заголовка файла!");
             if(mb.exec()==QMessageBox::Ok)
                 continue;
             else
@@ -282,7 +286,7 @@ void view::open()
         headerMagicIdTest[strlen(headerMagicId)] = '\0';
         if( ! strcmp(headerMagicIdTest,headerMagicId) == 0 )
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка, некорректный идентификатор заголовка файла!"));
+            mb.setText("Ошибка, некорректный идентификатор заголовка файла!");
             free(headerMagicIdTest);
             if(mb.exec()==QMessageBox::Ok)
                 continue;
@@ -292,7 +296,7 @@ void view::open()
         free(headerMagicIdTest);
         if(FVRFile.read((char*)&cameraStateHeader,sizeof(FVCameraStateInfo))!=sizeof(FVCameraStateInfo))
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка, не удалось прочитать\nзаголовок файла!"));
+            mb.setText("Ошибка, не удалось прочитать\nзаголовок файла!");
             if(mb.exec()==QMessageBox::Ok)
                 continue;
             else
@@ -303,7 +307,7 @@ void view::open()
             fileStream >> rsize;
             if(rsize!=sizes[3])
             {
-                mb.setText(QString().fromLocal8Bit("Ошибка, некорректный размер\nсекции параметров съёмки!"));
+                mb.setText("Ошибка, некорректный размер\nсекции параметров съёмки!");
                 if(mb.exec()==QMessageBox::Ok)
                     continue;
                 else
@@ -317,7 +321,7 @@ void view::open()
             fileStream >> rsize;
             if(rsize!=sizes[4])
             {
-                mb.setText(QString().fromLocal8Bit("Ошибка, некорректный размер\nсекции комментариев!"));
+                mb.setText("Ошибка, некорректный размер\nсекции комментариев!");
                 if(mb.exec()==QMessageBox::Ok)
                     continue;
                 else
@@ -331,7 +335,7 @@ void view::open()
             fileStream >> rsize;
             if(rsize!=sizes[5])
             {
-                mb.setText(QString().fromLocal8Bit("Ошибка, некорректный размер\nсекции названия камеры!"));
+                mb.setText("Ошибка, некорректный размер\nсекции названия камеры!");
                 if(mb.exec()==QMessageBox::Ok)
                     continue;
                 else
@@ -346,7 +350,7 @@ void view::open()
         //
         if(FVRFile.read(indexMagicIdTest,strlen(indexMagicId))!=strlen(indexMagicId))
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка, не удалось прочитать\nидентификатор секции индексов!"));
+            mb.setText("Ошибка, не удалось прочитать\nидентификатор секции индексов!");
             if(mb.exec()==QMessageBox::Ok)
                 continue;
             else
@@ -355,7 +359,7 @@ void view::open()
         indexMagicIdTest[strlen(indexMagicId)] = '\0';
         if( ! strcmp(indexMagicIdTest,indexMagicId) == 0 )
         {
-            mb.setText(QString().fromLocal8Bit("Ошибка, некорректный идентификатор секции индексов!"));
+            mb.setText("Ошибка, некорректный идентификатор секции индексов!");
             if(mb.exec()==QMessageBox::Ok)
                 continue;
             else
@@ -411,7 +415,7 @@ void view::open()
                 {
                     if( indexFrames[0].pos != frameStartPos )
                     {
-                        mb.setText(QString().fromLocal8Bit("Ошибка формата файла!"));
+                        mb.setText("Ошибка формата файла!");
                         if(mb.exec()==QMessageBox::Ok)
                             anotherOne = true;
                         break;
@@ -444,7 +448,7 @@ void view::open()
 
             if(totalFrames==0)
             {
-                mb.setText(QString().fromLocal8Bit("Ошибка, файл не содержит кадров!"));
+                mb.setText("Ошибка, файл не содержит кадров!");
                 if(mb.exec()==QMessageBox::Ok)
                     continue;
                 else
@@ -557,8 +561,8 @@ void view::source(uchar *map, int totalFrames, qint64 *framesPos, FVCameraStateI
 
 void view::saveImage()
 {
-    QString imageName = QFileDialog::getSaveFileName(this,QString().fromLocal8Bit("Выберите файл для сохранения"),QString().fromLocal8Bit("C:\\"),
-                                                          QString().fromLocal8Bit("Изображение (*.jpg"));
+    QString imageName = QFileDialog::getSaveFileName(this,"Выберите файл для сохранения","C:\\",
+                                                          "Изображение (*.jpg");
     if(imageName!="")
             lbl->pixmap()->save(imageName,"JPG");
 
@@ -566,8 +570,8 @@ void view::saveImage()
 
 void view::openImage()
 {
-    QString imageName = QFileDialog::getOpenFileName(this,QString().fromLocal8Bit("Выберите файл"),QString().fromLocal8Bit("C:\\"),
-                                                          QString().fromLocal8Bit("Изображение (*.jpg)"));
+    QString imageName = QFileDialog::getOpenFileName(this,"Выберите файл","C:\\",
+                                                          "Изображение (*.jpg)");
      if(imageName!="")
      {
          QPixmap *pix=new QPixmap;
@@ -645,12 +649,12 @@ void view::streamConnection()
 {
     if(stream==true)
     {
-        lblconnection->setText("Connection is done");
+        lblconnection->setText("Соединение установлено");
         enableStream(true);
     }
     else
     {
-        lblconnection->setText("No connection");
+        lblconnection->setText("Нет соединения");
         enableStream(false);
     }
 }
