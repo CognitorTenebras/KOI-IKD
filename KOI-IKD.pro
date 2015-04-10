@@ -14,13 +14,19 @@ TEMPLATE = app
 
 SOURCES += main.cpp\
         mainwindow.cpp \
-    view.cpp
+    view.cpp \
+    pivols.cpp \
+    pivolsthread.cpp
+
 
 HEADERS  += mainwindow.h \
-    view.h \
     fvcamerastateinfo.h \
     fvtypes.h \
-    MovieFileParams.h
+    MovieFileParams.h \
+    view.h \
+    stdafx.h \
+    pivols.h \
+    pivolsthread.h
 
 FORMS    += mainwindow.ui
 

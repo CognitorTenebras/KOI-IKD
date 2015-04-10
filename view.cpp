@@ -1,17 +1,21 @@
 #include "view.h"
+#include "pivolsthread.h"
 
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QMessageBox>
 #include <QFileDialog>
 #include <QGridLayout>
-#include <QThread>
-#include <QTime>
+
+
 
 const char * view::fvlabMagicId  = "FVLAB";
 const char * view::headerMagicId = "FVLABHDR";
 const char * view::fpnMagicId    = "FVLABFPN";
 const char * view::indexMagicId  = "FVLABIDX";
+
+unsigned char buffer1[792];
+unsigned char buffer2[792];
 
 view::view(QWidget *parent) :
     QWidget(parent)
@@ -62,7 +66,7 @@ view::view(QWidget *parent) :
     beforBut = new QPushButton; //предыдущий кадр
     beforBut->setMaximumSize(30,30);
     beforBut->setIcon(QIcon("../KOI-IKD/befor.jpg"));
-    
+
     playVideoBut= new QPushButton;//начать воспроизведение потока
     playVideoBut->setMaximumSize(30,30);
     playVideoBut->setIcon(QIcon("../KOI-IKD/play.jpg"));
@@ -70,7 +74,7 @@ view::view(QWidget *parent) :
     stopVideoBut= new QPushButton;//остановить поток
     stopVideoBut->setMaximumSize(30,30);
     stopVideoBut->setIcon(QIcon("../KOI-IKD/stop.jpg"));
-    
+
     //cadrslayout->addWidget(lblcadr);
     cadrslayout->addWidget(beforBut);
     cadrslayout->addWidget(playVideoBut);
@@ -82,7 +86,7 @@ view::view(QWidget *parent) :
     imgOpen->setMaximumSize(160,30);
     imgSave = new QPushButton("Сохранить изображение");//сохранить кадр
     imgSave->setMaximumSize(160,30);
-    
+
 
     rbw = new QRadioButton("Черно-белый",this); //черно белый вариант
     rbw->setChecked(true);
