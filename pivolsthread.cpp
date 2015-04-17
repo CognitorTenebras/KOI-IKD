@@ -1,22 +1,21 @@
 #include "pivolsthread.h"
 #include <QMessageBox>
 
-pivolsthread::pivolsthread(unsigned char *buf1, unsigned char *buf2, QReadWriteLock *l)
+QReadWriteLock lock1,lock2,lock;
+
+pivolsthread::pivolsthread(QObject *parent):
+    QThread(parent)
 {
-   buffer1=buf1;
-   buffer2=buf2;
-   lock=l;
-   stopped=false;
    buffer_flag=false;
+   stopped=false;
 }
 
 void pivolsthread::run()
 {
-
     unsigned long count_read_byte=0;
     unsigned long read_byte=PACKET_SIZE;
 
-    if(RegisterCard(0xA116FD719D83,ALL_CHANNELS))
+    if(RegisterCard((unsigned long)0xA116FD719D83,ALL_CHANNELS))
     {
         QMessageBox msgBox;
         msgBox.setText("Нет соединения с ПИВОЛС");
@@ -27,7 +26,7 @@ void pivolsthread::run()
             break;
         if (buffer_flag==false)
         {
-            lock->lockForWrite();
+            lock.lockForWrite();
             count_read_byte = ReadCard(buffer1, read_byte);
             if(count_read_byte!=read_byte)
             {
@@ -36,7 +35,8 @@ void pivolsthread::run()
             }
             else
             {
-                lock->unlock();
+                lock.unlock();
+                emit sendResult(buffer1);
                 buffer_flag=true;
                 count_read_byte=0;
                 read_byte=PACKET_SIZE;
@@ -44,7 +44,7 @@ void pivolsthread::run()
         }
         else
         {
-            lock->lockForWrite();
+            lock.lockForWrite();
             count_read_byte = ReadCard(buffer2, read_byte);
             if(count_read_byte!=read_byte)
             {
@@ -53,7 +53,8 @@ void pivolsthread::run()
             }
             else
             {
-                lock->unlock();
+                lock.unlock();
+                emit sendResult(buffer2);
                 buffer_flag=false;
                 count_read_byte=0;
                 read_byte=PACKET_SIZE;
@@ -61,6 +62,7 @@ void pivolsthread::run()
         }
     }
     ReleaseCard();
-    lock->unlock();
-
+    lock.unlock();
+    lock.unlock();
+    emit finished();
 }

@@ -8,6 +8,8 @@ QT       += core gui
 
 QT += widgets
 
+LIBS += Setupapi.lib
+
 TARGET = KOI-IKD
 TEMPLATE = app
 
@@ -16,17 +18,18 @@ SOURCES += main.cpp\
         mainwindow.cpp \
     view.cpp \
     pivols.cpp \
-    pivolsthread.cpp
+    pivolsthread.cpp \
+    picture.cpp
+
 
 
 HEADERS  += mainwindow.h \
-    fvcamerastateinfo.h \
-    fvtypes.h \
-    MovieFileParams.h \
     view.h \
     stdafx.h \
     pivols.h \
-    pivolsthread.h
+    pivolsthread.h \
+    picture.h
+
 
 FORMS    += mainwindow.ui
 
