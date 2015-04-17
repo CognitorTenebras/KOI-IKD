@@ -6,6 +6,8 @@ extern QReadWriteLock lock;
 Picture::Picture(QObject *parent) :
     QThread(parent)
 {
+    stop=false;
+
     picture = new unsigned char [ROW*COLUMN];
     memset(&picture,0,ROW*COLUMN);
 
@@ -26,6 +28,14 @@ void Picture::run()
             this,SLOT(makePicture(unsigned char*)));
     connect(pivols,SIGNAL(finished()),pivols,SLOT(deleteLater()));
     pivols->start();
+    forever{
+        if(stop)
+        {
+            emit stopPivols(true);
+            break;
+        }
+
+    }
 }
 
 void Picture::makePicture(unsigned char *buf)
@@ -66,4 +76,9 @@ void Picture::makePicture(unsigned char *buf)
     }
 
     memset(&pack,0, sizeof(pack));
+}
+
+void Picture::stopped(bool s)
+{
+    stop=s;
 }

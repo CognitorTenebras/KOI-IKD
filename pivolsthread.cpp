@@ -7,7 +7,7 @@ pivolsthread::pivolsthread(QObject *parent):
     QThread(parent)
 {
    buffer_flag=false;
-   stopped=false;
+   stop=false;
 }
 
 void pivolsthread::run()
@@ -22,8 +22,7 @@ void pivolsthread::run()
         msgBox.exec();
     }
     forever{
-        if (stopped==true)
-            break;
+        if (stop)break;
         if (buffer_flag==false)
         {
             lock.lockForWrite();
@@ -65,4 +64,9 @@ void pivolsthread::run()
     lock.unlock();
     lock.unlock();
     emit finished();
+}
+
+void pivolsthread::stopped(bool s)
+{
+    stop=s;
 }

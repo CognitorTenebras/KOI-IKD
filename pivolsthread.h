@@ -18,7 +18,7 @@ class pivolsthread: public QThread
     unsigned char *buffer1;
     unsigned char *buffer2;
     bool buffer_flag;
-    bool stopped;
+    bool stop;
 
 public:
     explicit pivolsthread(QObject *parent = 0);
@@ -28,6 +28,8 @@ protected:
 signals:
     void finished();
     void sendResult(unsigned char *buf);
+public slots:
+    void stopped(bool s);
 };
 
 #endif // PIVOLSTHREAD_H

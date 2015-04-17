@@ -53,6 +53,7 @@ protected:
 
 signals:
     void closed();
+    void pictureStop(bool);
 
 public slots:
     void source();

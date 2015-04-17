@@ -16,6 +16,7 @@ class Picture : public QThread
     Q_OBJECT
     QImage *image;
     QMessageBox mesBox;
+    bool stop;
     unsigned char *buffer;//пакет с ПИВОЛС
     unsigned char *picture;//массив кадра
 
@@ -37,9 +38,11 @@ protected:
 signals:
     void sendPicture(QImage *);
     void finished();
+    void stopPivols(bool);
 
 public slots:
     void makePicture(unsigned char *buf);
+    void stopped(bool s);
 };
 
 #endif // PICTURE_H

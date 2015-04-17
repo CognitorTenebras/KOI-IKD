@@ -179,6 +179,7 @@ void view::source()
     Picture *pic=new Picture(this);
     connect(pic,SIGNAL(sendPicture(QImage*)),this,SLOT(getResult(QImage*)));
     connect(pic,SIGNAL(finished()),pic,SLOT(deleteLater()));
+    connect(this,SIGNAL(pictureStop(bool)),pic,SLOT(stopped(bool)));
     pic->start();
 }
 
