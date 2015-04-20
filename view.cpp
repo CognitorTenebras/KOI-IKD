@@ -14,39 +14,41 @@ view::view(QWidget *parent) :
 
     cadr=0;
     stream=false;
+    recording=false;
 
     colorTableRBW.reserve(256);
     colorTableRPSE.reserve(256);
+
     for(int i=0;i<256;i++) //формируем таблицу цветов для черно-белого
     {
-        colorTableRBW[i] =  0xFF000000|((uchar)(i)<<16)|((uchar)(i)<<8)|(uchar)(i);
+        colorTableRBW.insert(i,0xFF000000|((uchar)(i)<<16)|((uchar)(i)<<8)|(uchar)(i));
     }
     for(int i=0;i<42;i++) //формируем таблицу цветов для псевдоцвета
-        colorTableRPSE[i] =  0xFF000000|((uchar)(0)<<16)|((uchar)(0)<<8)|(uchar)(200+i);
+        colorTableRPSE.insert(i, 0xFF000000|((uchar)(0)<<16)|((uchar)(0)<<8)|(uchar)(200+i));
     for(int i=0;i<42;i++)
-        colorTableRPSE[42+i] =  0xFF000000|((uchar)(0)<<16)|((uchar)(200+i)<<8)|(uchar)(0xFF);
+        colorTableRPSE.insert(42+i,0xFF000000|((uchar)(0)<<16)|((uchar)(200+i)<<8)|(uchar)(0xFF));
     for(int i=0;i<56;i++)
-        colorTableRPSE[84+i] =  0xFF000000|((uchar)(0)<<16)|((uchar)(190+i)<<8)|(uchar)(0);
+        colorTableRPSE.insert(i+84,0xFF000000|((uchar)(0)<<16)|((uchar)(190+i)<<8)|(uchar)(0));
     for(int i=0;i<42;i++)
-        colorTableRPSE[130+i] =  0xFF000000|((uchar)(200+i)<<16)|((uchar)(0xFF)<<8)|(uchar)(0);
+        colorTableRPSE.insert(i+130,0xFF000000|((uchar)(200+i)<<16)|((uchar)(0xFF)<<8)|(uchar)(0));
     for(int i=0;i<42;i++)
-        colorTableRPSE[172+i] =  0xFF000000|((uchar)(0xFF)<<16)|((uchar)(127+i)<<8)|(uchar)(0);
+        colorTableRPSE.insert(i+172,0xFF000000|((uchar)(0xFF)<<16)|((uchar)(127+i)<<8)|(uchar)(0));
     for(int i=0;i<42;i++)
-        colorTableRPSE[214+i] =  0xFF000000|((uchar)(200+i)<<16)|((uchar)(0)<<8)|(uchar)(0);
-
+        colorTableRPSE.insert(i+214,0xFF000000|((uchar)(200+i)<<16)|((uchar)(0)<<8)|(uchar)(0));
 
     this->setFixedSize(650,380);
     QHBoxLayout *mainlayout= new QHBoxLayout;//главный layout
     QVBoxLayout *videolayout = new QVBoxLayout;//виджеты одного кадра
     QVBoxLayout *streamlayout = new QVBoxLayout;//виджеты работы с потоком
 
-
     lbl = new QLabel(this);//вывод кадров
     lbl->setFixedSize(384,288);
     //lbl->setMaximumSize(384,288);
 
-    fileButton = new QPushButton("Открыть источник");//открытие кадров
-    fileButton->setMaximumSize(160,30);
+    //sourceButton = new QPushButton("Начать воспроизведение");//открытие кадров
+    //sourceButton->setMaximumSize(160,30);
+    //stopSourceButton = new QPushButton("Остановить воспроизведение");
+    //stopSourceButton->setMaximumSize(160,30);
     lblconnection = new QLabel;
     lblconnection->setFixedSize(200,30);
     lblconnection->setText("Соединение...");
@@ -66,14 +68,6 @@ view::view(QWidget *parent) :
     lblcadr = new QLabel; //номер кадра
     lblcadr->setNum(cadr);
 
-    nextBut = new QPushButton; //след кадр
-    nextBut->setMaximumSize(30,30);
-    nextBut->setIcon(QIcon("../KOI-IKD/next.jpg"));
-
-    beforBut = new QPushButton; //предыдущий кадр
-    beforBut->setMaximumSize(30,30);
-    beforBut->setIcon(QIcon("../KOI-IKD/befor.jpg"));
-
     playVideoBut= new QPushButton;//начать воспроизведение потока
     playVideoBut->setMaximumSize(30,30);
     playVideoBut->setIcon(QIcon("../KOI-IKD/play.jpg"));
@@ -82,11 +76,16 @@ view::view(QWidget *parent) :
     stopVideoBut->setMaximumSize(30,30);
     stopVideoBut->setIcon(QIcon("../KOI-IKD/stop.jpg"));
 
+    recordVideoBut= new QPushButton;//начать или закончить запись
+    recordVideoBut->setMaximumSize(30,30);
+    recordVideoBut->setIcon(QIcon("../KOI-IKD/recordNO.jpg"));
+
     //cadrslayout->addWidget(lblcadr);
-    cadrslayout->addWidget(beforBut);
+
     cadrslayout->addWidget(playVideoBut);
     cadrslayout->addWidget(stopVideoBut);
-    cadrslayout->addWidget(nextBut);
+    cadrslayout->addWidget(recordVideoBut);
+
 
 
     imgOpen = new QPushButton("Открыть изображение");//открыть кадр
@@ -111,7 +110,9 @@ view::view(QWidget *parent) :
 
     videolayout->addLayout(streamlayout);
     videolayout->addWidget(hline);
-    videolayout->addWidget(fileButton);
+    //videolayout->addWidget(sourceButton);
+    //videolayout->addWidget(stopSourceButton);
+    videolayout->addWidget(openVideoBut);
     videolayout->addLayout(cadrslayout);
     videolayout->addWidget(hline_1);
     videolayout->addWidget(imgOpen);
@@ -132,15 +133,15 @@ view::view(QWidget *parent) :
 
     this->setLayout(mainlayout);
 
-    connect(fileButton,SIGNAL(clicked()),this,SLOT(open()));
+    connect(startStreamButton,SIGNAL(clicked()),this,SLOT(startStream()));
+    connect(stopStreamButton,SIGNAL(clicked()),this,SLOT(stopStream()));
     connect(imgSave,SIGNAL(clicked()),this,SLOT(saveImage()));
     connect(imgOpen,SIGNAL(clicked()),this,SLOT(openImage()));
     connect(rbw,SIGNAL(clicked()),this,SLOT(setColor()));
     connect(rpse,SIGNAL(clicked()),this,SLOT(setColor()));
-    connect(nextBut,SIGNAL(clicked()),this,SLOT(nextCadr()));
-    connect(beforBut,SIGNAL(clicked()),this,SLOT(beforCadr()));
-    //connect(playVideoBut,SIGNAL(clicked()),this,SLOT(play()));
-    //connect(stopVideoBut,SIGNAL(clicked()),this,SLOT(stop()));
+    connect(playVideoBut,SIGNAL(clicked()),this,SLOT(play()));
+    connect(stopVideoBut,SIGNAL(clicked()),this,SLOT(stop()));
+    connect(recordVideoBut,SIGNAL(clicked()),this,SLOT(record()));
     streamConnection();
     enable(false);
 }
@@ -159,12 +160,11 @@ void view::closeEvent(QCloseEvent *event)
 
 void view::setColor()
 {
-    source();
+
 }
 
 void view::getResult(QImage* image)
 {
-
     if (rbw->isChecked()==true) //черно-белый
         image->setColorTable(colorTableRBW);
 
@@ -173,14 +173,56 @@ void view::getResult(QImage* image)
 
     lbl->setPixmap(QPixmap::fromImage(*image).scaled(QSize(384,288)));
 }
-
-void view::source()
+void view::startStream()
 {
     Picture *pic=new Picture(this);
     connect(pic,SIGNAL(sendPicture(QImage*)),this,SLOT(getResult(QImage*)));
     connect(pic,SIGNAL(finished()),pic,SLOT(deleteLater()));
     connect(this,SIGNAL(pictureStop(bool)),pic,SLOT(stopped(bool)));
+    connect(this,SIGNAL(beginRecord(QString)),pic,SLOT(startRecord(QString)));
+    connect(this,SIGNAL(stopRecord()),pic,SLOT(stopRecord()));
     pic->start();
+}
+
+
+
+void view::stopStream()
+{
+    emit pictureStop(true);
+}
+
+void view::play()
+{
+
+}
+
+void view::stop()
+{
+
+
+}
+
+void view::record()
+{
+    if(!recording)
+    {
+        recording=true;
+        emit beginRecord(videoFile);
+        recordVideoBut->setIcon(QIcon("../KOI-IKD/recordYES.jpg"));
+    }
+    else
+    {
+        recording=false;
+        emit stopRecord();
+        recordVideoBut->setIcon(QIcon("../KOI-IKD/recordNO.jpg"));
+    }
+
+}
+
+void view::open()
+{
+    videoFile = QFileDialog::getOpenFileName(this,"Выберите файл","C:\\",
+                                                          "Бинарный файл(*.bin");
 }
 
 void view::saveImage()
@@ -205,22 +247,6 @@ void view::openImage()
      enable(false);
 }
 
-void view::nextCadr()
-{
-    if(cadr>=0&&cadr<100)
-        cadr++;
-    source();
-    lblcadr->setNum(cadr);
-}
-
-void view::beforCadr()
-{
-    if(cadr>0&&cadr<=100)
-        cadr--;
-    source();
-    lblcadr->setNum(cadr);
-}
-
 void view::enable(bool Visible)
 {
     if(Visible==0)
@@ -228,10 +254,10 @@ void view::enable(bool Visible)
         startStreamButton->setEnabled(false);
         stopStreamButton->setEnabled(false);
         imgSave->setEnabled(false);
-        nextBut->setEnabled(false);
+
         playVideoBut->setEnabled(false);
         stopVideoBut->setEnabled(false);
-        beforBut->setEnabled(false);
+
         rbw->setEnabled(false);
         rpse->setEnabled(false);
     }
@@ -249,8 +275,7 @@ void view::enableVideo(bool Visible)
          enable(false);
     else
     {
-        nextBut->setEnabled(true);
-        beforBut->setEnabled(true);
+
         playVideoBut->setEnabled(true);
         stopVideoBut->setEnabled(true);
         enable(true);

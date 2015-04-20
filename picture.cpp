@@ -1,12 +1,14 @@
 #include "picture.h"
 
 
+
 extern QReadWriteLock lock;
 
 Picture::Picture(QObject *parent) :
     QThread(parent)
 {
     stop=false;
+    record=false;
 
     picture = new unsigned char [ROW*COLUMN];
     memset(&picture,0,ROW*COLUMN);
@@ -70,12 +72,37 @@ void Picture::makePicture(unsigned char *buf)
     lock.unlock();
     if(pack.pack_row==288)
     {
+        if(record==true)
+            if(out.writeRawData((const char*)picture,COLUMN*ROW)!=COLUMN*ROW)
+            {
+                mesBox.setText(QString("Ошибка записи в файл"));
+                mesBox.exec();
+            }
         image= new QImage(picture,COLUMN,ROW,QImage::Format_Indexed8);
         emit sendPicture(image);
         delete image;
     }
 
     memset(&pack,0, sizeof(pack));
+}
+
+void Picture::startRecord(const QString s)
+{
+    videoFile.setFileName(s);
+    videoFile.open(QIODevice::WriteOnly);
+    out.setDevice(&videoFile);
+
+}
+
+void Picture::stopRecord()
+{
+    record=false;
+    out.unsetDevice();
+    if(!videoFile.remove())
+    {
+        mesBox.setText("Файл не был закрыт");
+        mesBox.exec();
+    }
 }
 
 void Picture::stopped(bool s)

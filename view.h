@@ -25,20 +25,21 @@ public:
 
 private:
 
-    QPushButton *fileButton;
+    //QPushButton *sourceButton, *stopSourceButton;
     QLabel *lbl, *lblbw, *lblpse, *lblcadr, *lblconnection;
     QPushButton *startStreamButton, *stopStreamButton;
 
     QPushButton *imgSave;
     QPushButton *imgOpen;
 
-    QPushButton *openVideoBut, *playVideoBut, *stopVideoBut, *nextBut, *beforBut;
+    QPushButton *openVideoBut, *playVideoBut, *stopVideoBut, *recordVideoBut;
 
     QRadioButton *rbw, *rpse;
-    QString FileName;
+    QString videoFile;
 
     int cadr;
     bool stream;
+    bool recording;
 
     unsigned char *buffer;
 
@@ -54,14 +55,20 @@ protected:
 signals:
     void closed();
     void pictureStop(bool);
+    void beginRecord(const QString s);
+    void stopRecord();
+
 
 public slots:
-    void source();
+    void play();
+    void stop();
+    void record();
+    void open();
+    void stopStream();
+    void startStream();
     void setColor();
     void saveImage();
     void openImage();
-    void nextCadr();
-    void beforCadr();
     void streamConnection();
     void getResult(QImage *image);
 

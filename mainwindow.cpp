@@ -9,7 +9,7 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
 
-    QHBoxLayout *hl= new QHBoxLayout;
+    //QHBoxLayout *hl= new QHBoxLayout;
     v = new view;
     v->show();
     //hl->addWidget(v);

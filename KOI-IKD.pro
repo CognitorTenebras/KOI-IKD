@@ -34,7 +34,7 @@ HEADERS  += mainwindow.h \
 FORMS    += mainwindow.ui
 
 OTHER_FILES += \
-    befor.jpg \
-    next.jpg \
     play.jpg \
-    stop.jpg
+    stop.jpg \
+    recordNO.jpg \
+    recordYES.jpg
