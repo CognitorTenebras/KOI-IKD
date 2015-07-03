@@ -1,72 +1,91 @@
-#include "pivolsthread.h"
+#include "Pivolsthread.h"
 #include <QMessageBox>
 
-QReadWriteLock lock1,lock2,lock;
 
-pivolsthread::pivolsthread(QObject *parent):
+extern QMutex lock1, lock2;
+
+Pivolsthread::Pivolsthread(QObject *parent):
     QThread(parent)
 {
    buffer_flag=false;
    stop=false;
+
+   buffer1= new unsigned char [BUF_SIZE];
+   buffer2= new unsigned char [BUF_SIZE];
+
 }
 
-void pivolsthread::run()
+Pivolsthread::~Pivolsthread()
+{
+    delete []buffer1;
+    delete []buffer2;
+    emit finished();
+    ReleaseCard();
+}
+
+void Pivolsthread::run()
 {
     unsigned long count_read_byte=0;
-    unsigned long read_byte=PACKET_SIZE;
-
-    if(RegisterCard((unsigned long)0xA116FD719D83,ALL_CHANNELS))
-    {
-        QMessageBox msgBox;
-        msgBox.setText("Нет соединения с ПИВОЛС");
-        msgBox.exec();
-    }
+    unsigned long read_byte=BUF_SIZE;
+    unsigned short shift=0;
+    lock2.lock();
     forever{
-        if (stop)break;
+        if (stop) break;
         if (buffer_flag==false)
         {
-            lock.lockForWrite();
-            count_read_byte = ReadCard(buffer1, read_byte);
-            if(count_read_byte!=read_byte)
+            lock1.lock();
+            int countErr=0;
+            while(read_byte!=0)
             {
-                buffer1+=count_read_byte;
+                count_read_byte = ReadSgBufCard(buffer1+shift, read_byte);
+                shift = count_read_byte;
                 read_byte-=count_read_byte;
+                if(countErr>3)
+                {
+                    QMessageBox::warning(0,"Ошибка Пиволс", "Ошибка получения данных с платы ПИВОЛС",
+                                         QMessageBox::Cancel,QMessageBox::Ok);
+                    emit stopWork();
+                    break;
+                }
+                countErr++;
             }
-            else
-            {
-                lock.unlock();
-                emit sendResult(buffer1);
-                buffer_flag=true;
-                count_read_byte=0;
-                read_byte=PACKET_SIZE;
-            }
+            emit sendResult(buffer1,buffer_flag);
+            buffer_flag=true;
+            count_read_byte=0;
+            shift=0;
+            read_byte=BUF_SIZE;
         }
         else
         {
-            lock.lockForWrite();
-            count_read_byte = ReadCard(buffer2, read_byte);
-            if(count_read_byte!=read_byte)
+            lock2.lock();
+            int countErr=0;
+            while(read_byte!=0)
             {
-                buffer1+=count_read_byte;
+                count_read_byte = ReadSgBufCard(buffer2+shift, read_byte);
+                shift = count_read_byte;
                 read_byte-=count_read_byte;
+                if(countErr>3)
+                {
+                    QMessageBox::warning(0,"Ошибка Пиволс", "Ошибка получения данных с платы ПИВОЛС",
+                                         QMessageBox::Cancel,QMessageBox::Ok);
+                    emit stopWork();
+                    break;
+                }
+                countErr++;
             }
-            else
-            {
-                lock.unlock();
-                emit sendResult(buffer2);
-                buffer_flag=false;
-                count_read_byte=0;
-                read_byte=PACKET_SIZE;
-            }
+            emit sendResult(buffer2,buffer_flag);
+            buffer_flag=false;
+            count_read_byte=0;
+            shift=0;
+            read_byte=BUF_SIZE;
         }
     }
+    //lock1.unlock();
+    //lock2.unlock();
     ReleaseCard();
-    lock.unlock();
-    lock.unlock();
-    emit finished();
 }
 
-void pivolsthread::stopped(bool s)
+void Pivolsthread::stopped()
 {
-    stop=s;
+    stop=true;
 }

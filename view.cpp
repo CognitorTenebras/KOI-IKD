@@ -6,24 +6,29 @@
 #include <QMessageBox>
 #include <QFileDialog>
 #include <QGridLayout>
+#include <QtDebug>
 
+QMutex lock1, lock2;
 
 view::view(QWidget *parent) :
     QWidget(parent)
 {
 
+    //Инициализация переменных
     cadr=0;
     stream=false;
     recording=false;
 
+    //Задание таблиц цветов
     colorTableRBW.reserve(256);
     colorTableRPSE.reserve(256);
 
-    for(int i=0;i<256;i++) //формируем таблицу цветов для черно-белого
+    for(int i=0;i<256;i++) //таблица цветов для черно-белого
     {
         colorTableRBW.insert(i,0xFF000000|((uchar)(i)<<16)|((uchar)(i)<<8)|(uchar)(i));
     }
-    for(int i=0;i<42;i++) //формируем таблицу цветов для псевдоцвета
+
+    for(int i=0;i<42;i++) //таблица цветов для псевдоцвета
         colorTableRPSE.insert(i, 0xFF000000|((uchar)(0)<<16)|((uchar)(0)<<8)|(uchar)(200+i));
     for(int i=0;i<42;i++)
         colorTableRPSE.insert(42+i,0xFF000000|((uchar)(0)<<16)|((uchar)(200+i)<<8)|(uchar)(0xFF));
@@ -36,37 +41,40 @@ view::view(QWidget *parent) :
     for(int i=0;i<42;i++)
         colorTableRPSE.insert(i+214,0xFF000000|((uchar)(200+i)<<16)|((uchar)(0)<<8)|(uchar)(0));
 
-    this->setFixedSize(650,380);
+    //Определение лейаутов
+    this->setFixedSize(650,580);
     QHBoxLayout *mainlayout= new QHBoxLayout;//главный layout
-    QVBoxLayout *videolayout = new QVBoxLayout;//виджеты одного кадра
+    QVBoxLayout *videolayout = new QVBoxLayout;//виджеты видео потока
     QVBoxLayout *streamlayout = new QVBoxLayout;//виджеты работы с потоком
+    colourBox = new QGroupBox;
 
     lbl = new QLabel(this);//вывод кадров
     lbl->setFixedSize(384,288);
-    //lbl->setMaximumSize(384,288);
 
-    //sourceButton = new QPushButton("Начать воспроизведение");//открытие кадров
-    //sourceButton->setMaximumSize(160,30);
-    //stopSourceButton = new QPushButton("Остановить воспроизведение");
-    //stopSourceButton->setMaximumSize(160,30);
+    glbl = new QLabel(this);
+    glbl->setFixedSize(385,270);
+    glbl->setPicture(paintFigure);
+
+    //Сообщение о соединение с платой ПИВОЛС
     lblconnection = new QLabel;
     lblconnection->setFixedSize(200,30);
     lblconnection->setText("Соединение...");
+
+    //Кнопки работы с потоком
     startStreamButton = new QPushButton("Старт");
     startStreamButton->setMaximumSize(160,30);
     stopStreamButton = new QPushButton("Стоп");
     stopStreamButton->setMaximumSize(160,30);
 
+    //Установка виджетов потока в лейаут работы с потоком
     streamlayout->addWidget(lblconnection);
     streamlayout->addWidget(startStreamButton);
     streamlayout->addWidget(stopStreamButton);
 
-
+    //Виджеты работы с видео файлом
     QHBoxLayout *cadrslayout = new QHBoxLayout; //расположение виджетов для потока кадров
     openVideoBut = new QPushButton("Открыть видео файл");
     openVideoBut->setMaximumSize(160,30);
-    lblcadr = new QLabel; //номер кадра
-    lblcadr->setNum(cadr);
 
     playVideoBut= new QPushButton;//начать воспроизведение потока
     playVideoBut->setMaximumSize(30,30);
@@ -80,24 +88,48 @@ view::view(QWidget *parent) :
     recordVideoBut->setMaximumSize(30,30);
     recordVideoBut->setIcon(QIcon("../KOI-IKD/recordNO.jpg"));
 
-    //cadrslayout->addWidget(lblcadr);
+    lblfile = new QLabel("Выбранный файл:");
 
+    //Установка виджетов в лейаут
     cadrslayout->addWidget(playVideoBut);
     cadrslayout->addWidget(stopVideoBut);
     cadrslayout->addWidget(recordVideoBut);
 
-
-
+    //Кнопки по работе с кадром
     imgOpen = new QPushButton("Открыть изображение");//открыть кадр
     imgOpen->setMaximumSize(160,30);
     imgSave = new QPushButton("Сохранить изображение");//сохранить кадр
     imgSave->setMaximumSize(160,30);
 
+    //Параметры работы с гистограммой
+    QHBoxLayout *layoutRow = new QHBoxLayout;
+    picRow = new QRadioButton("Строка");
+    spinRow = new QSpinBox();
+    spinRow->setMaximum(384);
+    spinRow->setMinimum(1);
+    layoutRow->addWidget(picRow);
+    layoutRow->addWidget(spinRow);
+    QHBoxLayout *layoutColumn = new QHBoxLayout;
+    picColumn = new QRadioButton("Столбец");
+    spinColumn  = new QSpinBox();
+    spinColumn ->setMaximum(384);
+    spinColumn ->setMinimum(1);
+    layoutColumn ->addWidget(picColumn);
+    layoutColumn ->addWidget(spinColumn);
+    showHistogram = new QPushButton("Показать гистограмму");
 
+    //Задание опций кадра
+    QVBoxLayout *colourVBox = new QVBoxLayout;
+    colourBox->setTitle("Цветовая схема");
     rbw = new QRadioButton("Черно-белый",this); //черно белый вариант
     rbw->setChecked(true);
     rpse = new QRadioButton("Псевдоцвет", this); //псевдоцвет
+    colourVBox->addWidget(rbw);
+    colourVBox->addWidget(rpse);
+    colourBox->setLayout(colourVBox);
 
+
+    //Создание разделителей для панели
     QFrame *hline = new QFrame;
     hline->setFrameShape(QFrame::HLine);
     hline->setFrameShadow(QFrame::Sunken);
@@ -107,34 +139,46 @@ view::view(QWidget *parent) :
     QFrame *hline_2 = new QFrame;
     hline_2->setFrameShape(QFrame::HLine);
     hline_2->setFrameShadow(QFrame::Sunken);
+    QFrame *hline_3 = new QFrame;
+    hline_3->setFrameShape(QFrame::HLine);
+    hline_3->setFrameShadow(QFrame::Sunken);
 
+    //Установка виджетов панели лейаутов
     videolayout->addLayout(streamlayout);
     videolayout->addWidget(hline);
-    //videolayout->addWidget(sourceButton);
-    //videolayout->addWidget(stopSourceButton);
     videolayout->addWidget(openVideoBut);
     videolayout->addLayout(cadrslayout);
+    videolayout->addWidget(lblfile);
     videolayout->addWidget(hline_1);
     videolayout->addWidget(imgOpen);
     videolayout->addWidget(imgSave);
     videolayout->addWidget(hline_2);
-    videolayout->addWidget(rbw);
-    videolayout->addWidget(rpse);
+    videolayout->addLayout(layoutRow);
+    videolayout->addLayout(layoutColumn);
+    videolayout->addWidget(hline_3);
+    videolayout->addWidget(colourBox);
     videolayout->addStretch();
 
-
+    //Заполнение главного лейаута
     QFrame *vline = new QFrame;
     vline->setFrameShape(QFrame::VLine);
     vline->setFrameShadow(QFrame::Sunken);
-    mainlayout->addWidget(lbl);
+    QVBoxLayout *lblLayout = new QVBoxLayout;
+    lblLayout->addWidget(lbl);
+    lblLayout->addStretch();
+    lblLayout->addWidget(glbl);
+    mainlayout->addLayout(lblLayout);
     mainlayout->addStretch();
     mainlayout->addWidget(vline);
     mainlayout->addLayout(videolayout);
 
+    //установка главного лейаута
     this->setLayout(mainlayout);
 
+    //задание сигналов-слотов
     connect(startStreamButton,SIGNAL(clicked()),this,SLOT(startStream()));
     connect(stopStreamButton,SIGNAL(clicked()),this,SLOT(stopStream()));
+    connect(openVideoBut,SIGNAL(clicked()),this,SLOT(open()));
     connect(imgSave,SIGNAL(clicked()),this,SLOT(saveImage()));
     connect(imgOpen,SIGNAL(clicked()),this,SLOT(openImage()));
     connect(rbw,SIGNAL(clicked()),this,SLOT(setColor()));
@@ -142,13 +186,34 @@ view::view(QWidget *parent) :
     connect(playVideoBut,SIGNAL(clicked()),this,SLOT(play()));
     connect(stopVideoBut,SIGNAL(clicked()),this,SLOT(stop()));
     connect(recordVideoBut,SIGNAL(clicked()),this,SLOT(record()));
+
+
+    if(RegisterCard((unsigned long)0xA116FD719D83,BOTH_CHANNEL_AND_MARKER))
+        stream=true;
     streamConnection();
-    enable(false);
+    enableVideo(false);
+}
+
+void view::paintEvent(QPaintEvent *)
+{
+
 }
 
 view::~view()
 {
+    if(pic->isRunning())
+    {
+        pic->exit();
+        pic->wait();
+        qDebug()<<pic->isRunning();
+    }
 
+    if(pivols->isRunning())
+    {
+        emit stopPivols();
+        pivols->wait();
+        qDebug()<<pivols->isRunning();
+    }
 }
 
 void view::closeEvent(QCloseEvent *event)
@@ -156,7 +221,6 @@ void view::closeEvent(QCloseEvent *event)
     emit closed();
     event->accept();
 }
-
 
 void view::setColor()
 {
@@ -172,23 +236,41 @@ void view::getResult(QImage* image)
         image->setColorTable(colorTableRPSE);
 
     lbl->setPixmap(QPixmap::fromImage(*image).scaled(QSize(384,288)));
+    setUpdatesEnabled(true);
+    repaint();
+    setUpdatesEnabled(false);
 }
 void view::startStream()
 {
-    Picture *pic=new Picture(this);
-    connect(pic,SIGNAL(sendPicture(QImage*)),this,SLOT(getResult(QImage*)));
-    connect(pic,SIGNAL(finished()),pic,SLOT(deleteLater()));
-    connect(this,SIGNAL(pictureStop(bool)),pic,SLOT(stopped(bool)));
-    connect(this,SIGNAL(beginRecord(QString)),pic,SLOT(startRecord(QString)));
-    connect(this,SIGNAL(stopRecord()),pic,SLOT(stopRecord()));
+    pic=new Picture();
+    pivols = new Pivolsthread();
+    connect(pic,&Picture::sendPicture,this,&view::getResult);
+    connect(pic,&Picture::finished,pic,&view::deleteLater);
+    connect(this,&view::pictureStop,pic,&Picture::stopped);
+    connect(this,&view::beginRecord,pic,&Picture::startRecord);
+    connect(this,&view::stopRecord,pic,&Picture::stopRecord);
+    connect(pic,&Picture::sendFigure,this,&view::drawFigure);
+
+    connect(pivols,&Pivolsthread::sendResult,
+            pic,&Picture::makePicture);
+    connect(pivols,&Pivolsthread::finished,pivols,&Pivolsthread::deleteLater);
+    connect(pivols,&Pivolsthread::stopWork,pic,&Picture::stopped);
+    connect(this,&view::stopPivols,pivols,&Pivolsthread::stopped);
     pic->start();
+    pivols->start();
 }
-
-
 
 void view::stopStream()
 {
-    emit pictureStop(true);
+    pic->exit();
+    pic->wait();
+    qDebug()<<pic->isRunning();
+
+    emit stopPivols();
+    pivols->wait();
+    qDebug()<<pivols->isRunning();
+
+    lblconnection->setText("Поток остановлен");
 }
 
 void view::play()
@@ -204,17 +286,23 @@ void view::stop()
 
 void view::record()
 {
-    if(!recording)
-    {
-        recording=true;
-        emit beginRecord(videoFile);
-        recordVideoBut->setIcon(QIcon("../KOI-IKD/recordYES.jpg"));
-    }
+    if(videoFile!="")
+        if(!recording)
+        {
+            recording=true;
+            emit beginRecord(videoFile);
+            recordVideoBut->setIcon(QIcon("../KOI-IKD/recordYES.jpg"));
+        }
+        else
+        {
+            recording=false;
+            emit stopRecord();
+            recordVideoBut->setIcon(QIcon("../KOI-IKD/recordNO.jpg"));
+        }
     else
     {
-        recording=false;
-        emit stopRecord();
-        recordVideoBut->setIcon(QIcon("../KOI-IKD/recordNO.jpg"));
+        msgBox.setText("Выберите файл для записи");
+        msgBox.exec();
     }
 
 }
@@ -222,7 +310,14 @@ void view::record()
 void view::open()
 {
     videoFile = QFileDialog::getOpenFileName(this,"Выберите файл","C:\\",
-                                                          "Бинарный файл(*.bin");
+                                                          "Любой файл(*)");
+    QRegExp rx("(\\w+.bin)");
+    QString str;
+    int pos = 0;
+    pos = rx.indexIn(videoFile, pos);
+    str = rx.cap(1);
+    lblfile->setText("Выбраный файл: "+str);
+    enableVideo(true);
 }
 
 void view::saveImage()
@@ -272,23 +367,28 @@ void view::enable(bool Visible)
 void view::enableVideo(bool Visible)
 {
     if(Visible==0)
-         enable(false);
-    else
     {
-
         playVideoBut->setEnabled(true);
         stopVideoBut->setEnabled(true);
-        enable(true);
+        recordVideoBut->setEnabled(true);
+    }
+    else
+    {
+        playVideoBut->setEnabled(true);
+        stopVideoBut->setEnabled(true);
+        recordVideoBut->setEnabled(true);
     }
 }
 
-void view::enableStream(bool Visible)
+void view::enableStream()
 {
-    if(Visible==0)
-        enable(false);
+    if(stream==false)
+    {
+        startStreamButton->setEnabled(false);
+        stopStreamButton->setEnabled(false);
+    }
     else
     {
-        enable(true);
         startStreamButton->setEnabled(true);
         stopStreamButton->setEnabled(true);
     }
@@ -299,11 +399,37 @@ void view::streamConnection()
     if(stream==true)
     {
         lblconnection->setText("Соединение установлено");
-        enableStream(true);
+        enableStream();
     }
     else
     {
         lblconnection->setText("Нет соединения");
-        enableStream(false);
+        enableStream();
+    }
+}
+
+void view::drawFigure(unsigned char *buf)
+{
+    if(picRow->isChecked()||picColumn->isChecked())
+    {
+        QPainter p(&paintFigure);
+        p.drawLine(10,0,10,255);
+        p.drawLine(10,255,384,255);
+        p.drawLine(0,10,10,0);
+        p.drawLine(20,10,10,0);
+        p.drawLine(374,245,384,255);
+        p.drawLine(374,265,384,255);
+        p.drawRect(0,0,384,255);
+        row = spinRow->value();
+        column = spinColumn->value();
+        QPainterPath path;
+        if(picRow->isChecked())
+            for(int i=0;i<384;i++)
+                path.lineTo(i,255-buf[row*384+i]);
+
+        if(picColumn->isChecked())
+            for(int i=0;i<288;i++)
+                path.lineTo(i,255-buf[column+i*384]);
+        p.drawPath(path);
     }
 }

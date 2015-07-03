@@ -10,9 +10,17 @@
 #include <QList>
 #include <QRadioButton>
 #include <QCloseEvent>
+#include <QMessageBox>
+#include <QSpinBox>
+#include <QPainter>
+#include <QPicture>
+#include <QGroupBox>
+#include <QMutex>
 
-#include "fvcamerastateinfo.h"
 #include "picture.h"
+#include "pivols.h"
+#include "pivolsthread.h"
+#include "videoplayer.h"
 
 using namespace std;
 
@@ -25,8 +33,14 @@ public:
 
 private:
 
+    QMessageBox msgBox;
     //QPushButton *sourceButton, *stopSourceButton;
-    QLabel *lbl, *lblbw, *lblpse, *lblcadr, *lblconnection;
+    QLabel *lbl; //вывод изображения
+    QLabel *lblconnection;//статус соединения
+    QLabel *lblfile;//выбранный файл
+    QLabel *glbl;
+    QPicture paintFigure;
+    Pivolsthread *pivols;
     QPushButton *startStreamButton, *stopStreamButton;
 
     QPushButton *imgSave;
@@ -37,26 +51,41 @@ private:
     QRadioButton *rbw, *rpse;
     QString videoFile;
 
+    QRadioButton *picRow, *picColumn;
+
+    QSpinBox *spinRow, *spinColumn;
+    QPushButton *showHistogram;
+    QGroupBox *colourBox;
+
+    QPainter paint;
+
+    Picture *pic;
+
     int cadr;
     bool stream;
     bool recording;
+    int column;
+    int row;
 
     unsigned char *buffer;
 
     QVector<QRgb> colorTableRBW,colorTableRPSE;
 
     void enable(bool Visible);
-    void enableStream(bool Visible);
     void enableVideo(bool Visible);
+    void enableStream();
 
 protected:
     void closeEvent(QCloseEvent *event);
+    void paintEvent(QPaintEvent *);
 
 signals:
     void closed();
-    void pictureStop(bool);
+    void pictureStop();
     void beginRecord(const QString s);
     void stopRecord();
+    void optionSignal(int);
+    void stopPivols();
 
 
 public slots:
@@ -71,7 +100,7 @@ public slots:
     void openImage();
     void streamConnection();
     void getResult(QImage *image);
-
+    void drawFigure(unsigned char *buf);
 };
 
 #endif // VIEW_H

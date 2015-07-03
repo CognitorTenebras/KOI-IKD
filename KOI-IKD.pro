@@ -4,11 +4,14 @@
 #
 #-------------------------------------------------
 
-QT       += core gui
+QT += core gui
 
 QT += widgets
 
-LIBS += Setupapi.lib
+INCLUDEPATH += "..\KOI-IKD\tiff-4.0.4beta\libtiff"
+
+LIBS += Setupapi.lib \
+        -L"..\KOI-IKD\tiff-4.0.4beta\libtiff" -llibtiff
 
 TARGET = KOI-IKD
 TEMPLATE = app
@@ -17,18 +20,20 @@ TEMPLATE = app
 SOURCES += main.cpp\
         mainwindow.cpp \
     view.cpp \
-    pivols.cpp \
     pivolsthread.cpp \
-    picture.cpp
-
+    picture.cpp \
+    pivols.cpp \
+    videoplayer.cpp \
+    resources.cpp
 
 
 HEADERS  += mainwindow.h \
     view.h \
-    stdafx.h \
-    pivols.h \
     pivolsthread.h \
-    picture.h
+    picture.h \
+    pivols.h \
+    videoplayer.h \
+    resources.h
 
 
 FORMS    += mainwindow.ui
@@ -38,3 +43,5 @@ OTHER_FILES += \
     stop.jpg \
     recordNO.jpg \
     recordYES.jpg
+
+#QMAKE_CXXFLAGS += /MD

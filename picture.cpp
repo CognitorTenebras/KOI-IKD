@@ -1,111 +1,156 @@
 #include "picture.h"
+#include <QDebug>
 
 
-
-extern QReadWriteLock lock;
+extern QMutex lock1, lock2;
 
 Picture::Picture(QObject *parent) :
     QThread(parent)
 {
     stop=false;
     record=false;
+    option=0;
 
-    picture = new unsigned char [ROW*COLUMN];
-    memset(&picture,0,ROW*COLUMN);
-
+    sBuffer = new unsigned short [SBUF_SIZE];
+    memset(sBuffer,0,SBUF_SIZE);
+    picture = new unsigned char [PICTURE_SIZE];
+    memset(picture,0,PICTURE_SIZE);
+    cPicture =  new unsigned char [SBUF_SIZE];
+    memset(cPicture,0,SBUF_SIZE);
     memset(&pack,0,sizeof(pack));
 
-    mesBox.setWindowTitle("КОИ-ИКД");
+    image = new QImage(cPicture,ROW,COLUMN,QImage::Format_Indexed8);
 }
 
 Picture::~Picture()
 {
     delete []picture;
+    delete []sBuffer;
+    TIFFClose(out);
+    emit finished();
 }
+
 
 void Picture::run()
 {
-    pivolsthread *pivols = new pivolsthread(this);
-    connect(pivols,SIGNAL(sendResult(unsigned char*)),
-            this,SLOT(makePicture(unsigned char*)));
-    connect(pivols,SIGNAL(finished()),pivols,SLOT(deleteLater()));
-    pivols->start();
-    forever{
-        if(stop)
-        {
-            emit stopPivols(true);
-            break;
-        }
-
-    }
+    exec();
+    if(!lock1.tryLock())
+        lock1.unlock();
+    if(!lock2.tryLock())
+        lock2.unlock();
 }
 
-void Picture::makePicture(unsigned char *buf)
+void Picture::makePicture(unsigned char *buf, bool buf_flag)
 {
-    lock.lockForRead();
+
     buffer=buf;
 
-    memcpy(&pack.pack_mark,buffer,6);
-    if(pack.pack_mark!=BEGIN_MARK)
-    {
-        mesBox.setText(QString("Несовпадение маркера пакета: %1").arg(pack.pack_mark,0,16));
-        mesBox.exec();
-        return;
-    }
+    //memcpy(&pack.pack_type,buffer+6,1);
+    //memcpy(&pack.pack_zip,buffer+7,1);
+    //memcpy(&pack.pack_time,buffer+8,7);
+    //memcpy(&pack.pack_number,buffer+15,3);
 
-    memcpy(&pack.pack_type,buffer+6,1);
-    if(pack.pack_type!=0x1||pack.pack_type!=0x10)
-    {
-        mesBox.setText(QString("Неправильный тип иформации: %1").arg(pack.pack_type,0,16));
-        mesBox.exec();
-        return;
-    }
 
-    memcpy(&pack.pack_zip,buffer+7,1);
-    memcpy(&pack.pack_time,buffer+8,7);
-    memcpy(&pack.pack_number,buffer+15,3);
-    memcpy(&pack.pack_row,buffer+18,2);
-
-    if(pack.pack_row==1)
-        memset(&picture,0,ROW*COLUMN);
-    memcpy(picture+ROW*(pack.pack_row-1),buffer+24,ROW);
-    lock.unlock();
-    if(pack.pack_row==288)
+    unsigned int count=0;
+    while(count!=BUF_SIZE)
     {
-        if(record==true)
-            if(out.writeRawData((const char*)picture,COLUMN*ROW)!=COLUMN*ROW)
+        memcpy(&pack.pack_mark,&buffer[count],6);
+        if(pack.pack_mark==BEGIN)
+        {
+            memcpy(&pack.pack_row,&buffer[count+18],2);
+            pack.pack_row=encode(pack.pack_row);
+
+            unsigned short row=pack.pack_row;
+            memcpy(&picture[VI_SIZE*(row-1)],&buffer[count+23],VI_SIZE);
+
+
+            if(pack.pack_row==COLUMN)
             {
-                mesBox.setText(QString("Ошибка записи в файл"));
-                mesBox.exec();
-            }
-        image= new QImage(picture,COLUMN,ROW,QImage::Format_Indexed8);
-        emit sendPicture(image);
-        delete image;
-    }
+                unsigned short maxx=0,minn=0xffff;
 
-    memset(&pack,0, sizeof(pack));
+                memcpy(sBuffer,picture,PICTURE_SIZE);
+                for (int i=0;i<SBUF_SIZE;i++)
+                {
+                    sBuffer[i]=encode(sBuffer[i])&0x3fff;
+                    if (sBuffer[i]>maxx)
+                        maxx=sBuffer[i];
+                    if (sBuffer[i]<minn)
+                        minn=sBuffer[i];
+                }
+
+                int mult, min2;
+
+                mult = (maxx - minn)/255;
+                min2 = (maxx - mult*255) + minn;
+
+                for(int i=0;i<SBUF_SIZE;i++)
+                {
+                    if(sBuffer[i]<min2)
+                        cPicture[i]=0;
+                    else
+                        cPicture[i]=(sBuffer[i]-min2)/mult;
+                }
+
+                //for (int i=0;i<SBUF_SIZE;i++)
+                        //cPicture[i]=sBuffer[i]<<1;
+
+                if(record==true)
+                {
+
+                   TIFFSetField(out, TIFFTAG_IMAGEWIDTH, (uint16)ROW);
+                   TIFFSetField(out, TIFFTAG_IMAGELENGTH, (uint16) COLUMN);
+                   TIFFSetField(out, TIFFTAG_BITSPERSAMPLE, 16);
+                   TIFFSetField(out, TIFFTAG_COMPRESSION, 1);
+                   TIFFSetField(out, TIFFTAG_STRIPOFFSETS, 0);
+                   TIFFSetField(out, TIFFTAG_PHOTOMETRIC, 1);
+                   TIFFSetField(out, TIFFTAG_IMAGEDESCRIPTION,"12345,12345,ДД:ЧЧ:ММ:СС");
+                   TIFFSetField(out, TIFFTAG_STRIPBYTECOUNTS,(uint32) PICTURE_SIZE);
+
+                   for (int j = 0; j < COLUMN; j++)
+                       TIFFWriteScanline(out, &picture[j * ROW*2], j, 0);
+
+                   TIFFWriteDirectory(out);
+                }
+
+                emit sendPicture(image);
+                emit sendFigure(cPicture);
+            }
+            count+=792;
+        }
+    }
+    if(!buf_flag)
+        lock2.unlock();
+    else
+        lock1.unlock();
 }
 
 void Picture::startRecord(const QString s)
 {
-    videoFile.setFileName(s);
-    videoFile.open(QIODevice::WriteOnly);
-    out.setDevice(&videoFile);
+    filename = s;
 
+    out = TIFFOpen(filename.toLocal8Bit().constData(),"w") ;
+
+    if (!out)
+    {
+           fprintf (stderr, "Can't open %s for writing\n", filename);
+           record=false;
+    }
+    else
+        record=true;
 }
 
 void Picture::stopRecord()
 {
+
     record=false;
-    out.unsetDevice();
-    if(!videoFile.remove())
-    {
-        mesBox.setText("Файл не был закрыт");
-        mesBox.exec();
-    }
+    TIFFClose(out);
 }
 
-void Picture::stopped(bool s)
+void Picture::stopped()
 {
-    stop=s;
+    this->exit(0);
 }
+
+
+
+
