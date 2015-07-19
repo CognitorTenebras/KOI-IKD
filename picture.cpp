@@ -1,8 +1,6 @@
 #include "picture.h"
+#include "resources.h"
 #include <QDebug>
-
-
-extern QMutex lock1, lock2;
 
 Picture::Picture(QObject *parent) :
     QThread(parent)
@@ -26,18 +24,19 @@ Picture::~Picture()
 {
     delete []picture;
     delete []sBuffer;
-    TIFFClose(out);
-    emit finished();
+
 }
 
 
 void Picture::run()
 {
     exec();
-    if(!lock1.tryLock())
+    if(lock1.tryLock())
         lock1.unlock();
-    if(!lock2.tryLock())
+    if(lock2.tryLock())
         lock2.unlock();
+    if(out) TIFFClose(out);
+    emit finished();
 }
 
 void Picture::makePicture(unsigned char *buf, bool buf_flag)
@@ -54,21 +53,21 @@ void Picture::makePicture(unsigned char *buf, bool buf_flag)
     unsigned int count=0;
     while(count!=BUF_SIZE)
     {
-        memcpy(&pack.pack_mark,&buffer[count],6);
+        memcpy(&pack.pack_mark,&buffer[count],6);//получаем идентификатор пакета и проверяем его
         if(pack.pack_mark==BEGIN)
         {
-            memcpy(&pack.pack_row,&buffer[count+18],2);
+            memcpy(&pack.pack_row,&buffer[count+18],2);//получаем номер строки
             pack.pack_row=encode(pack.pack_row);
 
             unsigned short row=pack.pack_row;
-            memcpy(&picture[VI_SIZE*(row-1)],&buffer[count+23],VI_SIZE);
+            memcpy(&picture[VI_SIZE*(row-1)],&buffer[count+23],VI_SIZE);//получаем видеоинформацию из пакета (строка)
 
 
-            if(pack.pack_row==COLUMN)
+            if(pack.pack_row==COLUMN)//когда получаем пакет с последней строчкой
             {
                 unsigned short maxx=0,minn=0xffff;
 
-                memcpy(sBuffer,picture,PICTURE_SIZE);
+                memcpy(sBuffer,picture,PICTURE_SIZE);//для того чтобы сделать преобразование из 14 бит в 8
                 for (int i=0;i<SBUF_SIZE;i++)
                 {
                     sBuffer[i]=encode(sBuffer[i])&0x3fff;
@@ -83,7 +82,7 @@ void Picture::makePicture(unsigned char *buf, bool buf_flag)
                 mult = (maxx - minn)/255;
                 min2 = (maxx - mult*255) + minn;
 
-                for(int i=0;i<SBUF_SIZE;i++)
+                for(int i=0;i<SBUF_SIZE;i++)//магия от михалыча
                 {
                     if(sBuffer[i]<min2)
                         cPicture[i]=0;
@@ -94,7 +93,7 @@ void Picture::makePicture(unsigned char *buf, bool buf_flag)
                 //for (int i=0;i<SBUF_SIZE;i++)
                         //cPicture[i]=sBuffer[i]<<1;
 
-                if(record==true)
+                if(record==true)//запись tiff
                 {
 
                    TIFFSetField(out, TIFFTAG_IMAGEWIDTH, (uint16)ROW);
@@ -112,8 +111,8 @@ void Picture::makePicture(unsigned char *buf, bool buf_flag)
                    TIFFWriteDirectory(out);
                 }
 
-                emit sendPicture(image);
-                emit sendFigure(cPicture);
+                emit sendPicture(image);//оправка на вывод изображения
+                emit sendFigure(cPicture);//отправка данных для рисования графика
             }
             count+=792;
         }

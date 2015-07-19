@@ -1,5 +1,7 @@
 #include "videoplayer.h"
 
+#include <QDebug>
+
 videoPlayer::videoPlayer(QObject *parent) :
     QThread(parent)
 {
@@ -14,84 +16,211 @@ videoPlayer::videoPlayer(QObject *parent) :
     memset(cPicture,0,SBUF_SIZE);
 
     timer = new QTimer(this);
-    connect(timer, SLOT(timeout()),SLOT(showVideo()));
+    connect(timer, SIGNAL(timeout()),this,SLOT(showVideo()));
     image = new QImage(cPicture,ROW,COLUMN,QImage::Format_Indexed8);
 }
 
 videoPlayer::~videoPlayer()
 {
-    TIFFClose(out);
+    s.close();
 }
 
 void videoPlayer::run()
 {
     exec();
+    s.close();
 }
 
-void videoPlayer::openVideo(QString s)
+void videoPlayer::openVideo(QString filename)
 {
-    out = TIFFOpen(s.toLocal8Bit().constData(),"w") ;
-
-    if (!out)
+    QMessageBox mb;
+    s.setFileName(filename);
+    s.open(QIODevice::ReadOnly);
+    if(!s.isOpen())
     {
-           fprintf (stderr, "Can't open %s for writing\n", s);
-           emit numberDir(0);
-    }
-    else
-    {
-
-        do {
-            dircount++;
-        } while (TIFFReadDirectory(out));
-        emit numberDir(dircount);
-        TIFFClose(out);
+        mb.setText(QString().fromLocal8Bit("Ошибка открытия файла TIFF!"));
+        mb.setStandardButtons(QMessageBox::Ok);
+        mb.exec();
+        return;
     }
 
+    s.read((char*)&tiffHeader,sizeof(TIFF_Header));
+    if((tiffHeader.encoding!=0x4949)||(tiffHeader.tiff_definer!=42))
+    {
+        mb.setText(QString().fromLocal8Bit("Некорректный заголовок файла TIFF!"));
+        mb.setStandardButtons(QMessageBox::Ok);
+        mb.exec();
+        s.close();
+        return;
+    }
+    nextIFDOffset = tiffHeader.offset_first_IFD;
+    dircount=0;
+    while(nextIFDOffset)
+    {
+        unsigned short IFD_count;
+        listCadr.append(nextIFDOffset);
+        if(!s.seek(nextIFDOffset))
+        {
+            mb.setText(QString().fromLocal8Bit("Файл TIFF битый!"));
+            mb.setStandardButtons(QMessageBox::Ok);
+            mb.exec();
+            s.close();
+            return;
+        }
+        if(s.read((char*)&IFD_count,sizeof(IFD_count))!=sizeof(IFD_count))
+        {
+            mb.setText(QString().fromLocal8Bit("Файл TIFF битый!"));
+            mb.setStandardButtons(QMessageBox::Ok);
+            mb.exec();
+            s.close();
+            return;
+        }
+        if(!s.seek(nextIFDOffset+sizeof(IFD_count)+sizeof(IFD)*IFD_count))
+        {
+            mb.setText(QString().fromLocal8Bit("Файл TIFF битый!"));
+            mb.setStandardButtons(QMessageBox::Ok);
+            mb.exec();
+            s.close();
+            return;
+        }
+        if(s.read((char*)&nextIFDOffset,sizeof(nextIFDOffset))!=sizeof(nextIFDOffset))
+        {
+            mb.setText(QString().fromLocal8Bit("Файл TIFF битый!"));
+            mb.setStandardButtons(QMessageBox::Ok);
+            mb.exec();
+            s.close();
+            return;
+        }
+        dircount++;
+    }
+    qDebug()<<dircount;
+    emit numberDir(dircount);
 }
 
-void videoPlayer::startVideo(QString s,int position)
+void videoPlayer::startVideo(QString filename,int position)
 {
-    out = TIFFOpen(s.toLocal8Bit().constData(),"w") ;
-    if (!out)
-    {
-           fprintf (stderr, "Can't open %s for writing\n", s);
-    }
-    else
-    {
-        numberCadr=position;
-        int i=0;
-        while (i!=numberCadr)
-            TIFFReadDirectory(out);
-        timer->start(100);
-        showVideo();
-    }
+
+    numberCadr=position;
+    nextIFDOffset = listCadr[numberCadr];
+    timer->start(100);
+    showVideo();
+
 }
 
 void videoPlayer::showVideo()
 {
-    if(numberCadr==dircount-1)
+    if(!nextIFDOffset)
+    {
         timer->stop();
-    uint32 imagelength;
-    uint32 row;
+        return;
+    }
 
-    TIFFGetField(out, TIFFTAG_IMAGELENGTH, &imagelength);
-    for (row = 0; row < imagelength; row++)
-        TIFFReadScanline(out, &picture[row*ROW*2], row);
+    unsigned int img_offset, img_size, img_size_old;
+    unsigned short IFD_count;
+
+        if(!s.seek(nextIFDOffset))
+        {
+            mb.setText(QString().fromLocal8Bit("Файл TIFF битый!"));
+            mb.setStandardButtons(QMessageBox::Ok);
+            mb.exec();
+            s.close();
+            return;
+        }
+        if(s.read((char*)&IFD_count,sizeof(IFD_count))!=sizeof(IFD_count))
+        {
+            mb.setText(QString().fromLocal8Bit("Файл TIFF битый!"));
+            mb.setStandardButtons(QMessageBox::Ok);
+            mb.exec();
+            s.close();
+            return;
+        }
+
+        img_offset = 0, img_size = 0, img_size_old = 0;
+        for(int i=0; i<IFD_count; i++)
+        {
+            if(s.read((char*)&IFD,sizeof(IFD))!=sizeof(IFD))
+            {
+                mb.setText(QString().fromLocal8Bit("Файл TIFF битый!"));
+                mb.setStandardButtons(QMessageBox::Ok);
+                mb.exec();
+                s.close();
+                return;
+            }
+            switch(IFD.TagName)
+            {
+            case TIFF_TAG_ImageWidth:
+                w = IFD.TagValue;
+                break;
+            case TIFF_TAG_ImageLength:
+                h = IFD.TagValue;
+                break;
+            case TIFF_TAG_BitsPerSample:
+                bpp = IFD.TagValue/8;
+                break;
+            case TIFF_TAG_StripOffsets:
+                img_offset = IFD.TagValue;
+                break;
+            case TIFF_TAG_StripByteCounts:
+                img_size = IFD.TagValue;
+                break;
+            }
+        }
+        if((w!=384)||(h!=288)||(bpp!=2)||(img_offset==0)||(img_size==0)||
+                ((img_size_old)&&(img_size!=img_size_old)))
+        {
+            mb.setText(QString().fromLocal8Bit("Некорректный файл TIFF!"));
+            mb.setStandardButtons(QMessageBox::Ok);
+            mb.exec();
+            s.close();
+            return;
+        }
+        img_size_old = img_size;
+
+        if(s.read((char*)&nextIFDOffset,sizeof(nextIFDOffset))!=sizeof(nextIFDOffset))
+        {
+            mb.setText(QString().fromLocal8Bit("Файл TIFF битый!"));
+            mb.setStandardButtons(QMessageBox::Ok);
+            mb.exec();
+            s.close();
+            return;
+        }
+
+        if(!s.seek(img_offset))
+        {
+            mb.setText(QString().fromLocal8Bit("Файл TIFF битый!"));
+            mb.setStandardButtons(QMessageBox::Ok);
+            mb.exec();
+            s.close();
+            return;
+        }
+
+
+        if(s.read((char*)picture, PICTURE_SIZE)!=PICTURE_SIZE)
+        {
+            mb.setText(QString().fromLocal8Bit("Файл TIFF битый!"));
+            mb.setStandardButtons(QMessageBox::Ok);
+            mb.exec();
+            s.close();
+            return;
+        }
+
+
 
     unsigned short maxx=0,minn=0xffff;
 
     memcpy(sBuffer,picture,PICTURE_SIZE);
     for (int i=0;i<SBUF_SIZE;i++)
     {
-        sBuffer[i]=encode(sBuffer[i])&0x3fff;
+        sBuffer[i]=sBuffer[i]&0x3fff;
         if (sBuffer[i]>maxx)
             maxx=sBuffer[i];
         if (sBuffer[i]<minn)
             minn=sBuffer[i];
-
     }
 
     int mult, min2;
+    unsigned short tst;
+
 
     mult = (maxx - minn)/255;
     min2 = (maxx - mult*255) + minn;
@@ -101,9 +230,16 @@ void videoPlayer::showVideo()
         if(sBuffer[i]<min2)
             cPicture[i]=0;
         else
-            cPicture[i]=(sBuffer[i]-min2)/mult;
+        {
+            tst = (sBuffer[i]-min2)/mult;
+            if(tst>255)
+                qDebug("%u!",tst);
+            cPicture[i]=tst;
+        }
     }
+
     numberCadr++;
+    qDebug()<<numberCadr;
     emit sendPicture(image);
     emit framePosition(numberCadr);
 }

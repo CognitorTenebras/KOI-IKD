@@ -8,7 +8,7 @@
 #include <QGridLayout>
 #include <QtDebug>
 
-QMutex lock1, lock2;
+
 
 view::view(QWidget *parent) :
     QWidget(parent)
@@ -18,6 +18,7 @@ view::view(QWidget *parent) :
     cadr=0;
     stream=false;
     recording=false;
+    numberCadr=0;
 
     //Задание таблиц цветов
     colorTableRBW.reserve(256);
@@ -42,7 +43,7 @@ view::view(QWidget *parent) :
         colorTableRPSE.insert(i+214,0xFF000000|((uchar)(200+i)<<16)|((uchar)(0)<<8)|(uchar)(0));
 
     //Определение лейаутов
-    this->setFixedSize(650,580);
+    this->setFixedSize(650,700);
     QHBoxLayout *mainlayout= new QHBoxLayout;//главный layout
     QVBoxLayout *videolayout = new QVBoxLayout;//виджеты видео потока
     QVBoxLayout *streamlayout = new QVBoxLayout;//виджеты работы с потоком
@@ -52,7 +53,7 @@ view::view(QWidget *parent) :
     lbl->setFixedSize(384,288);
 
     glbl = new QLabel(this);
-    glbl->setFixedSize(385,270);
+    glbl->setFixedSize(385,289);
     glbl->setPicture(paintFigure);
 
     //Сообщение о соединение с платой ПИВОЛС
@@ -116,7 +117,6 @@ view::view(QWidget *parent) :
     spinColumn ->setMinimum(1);
     layoutColumn ->addWidget(picColumn);
     layoutColumn ->addWidget(spinColumn);
-    showHistogram = new QPushButton("Показать гистограмму");
 
     //Задание опций кадра
     QVBoxLayout *colourVBox = new QVBoxLayout;
@@ -127,6 +127,10 @@ view::view(QWidget *parent) :
     colourVBox->addWidget(rbw);
     colourVBox->addWidget(rpse);
     colourBox->setLayout(colourVBox);
+
+    videoSlider = new QSlider(Qt::Horizontal);
+    videoSlider->setGeometry(0,0,288,30);
+
 
 
     //Создание разделителей для панели
@@ -166,6 +170,8 @@ view::view(QWidget *parent) :
     QVBoxLayout *lblLayout = new QVBoxLayout;
     lblLayout->addWidget(lbl);
     lblLayout->addStretch();
+    lblLayout->addWidget(videoSlider);
+    lblLayout->addStretch();
     lblLayout->addWidget(glbl);
     mainlayout->addLayout(lblLayout);
     mainlayout->addStretch();
@@ -186,38 +192,94 @@ view::view(QWidget *parent) :
     connect(playVideoBut,SIGNAL(clicked()),this,SLOT(play()));
     connect(stopVideoBut,SIGNAL(clicked()),this,SLOT(stop()));
     connect(recordVideoBut,SIGNAL(clicked()),this,SLOT(record()));
+    //connect(videoSlider,SIGNAL(valueChanged(int)),this,SLOT(changeSlider()),Qt::DirectConnection);
+    connect(videoSlider,SIGNAL(sliderMoved(int)),this,SLOT(changeSlider()),Qt::DirectConnection);
+    connect(videoSlider,SIGNAL(sliderPressed()),this,SLOT(changeSlider()),Qt::DirectConnection);
+    connect(videoSlider,SIGNAL(sliderReleased()),this,SLOT(changeSlider()),Qt::DirectConnection);
 
+    //создание потока для воспроизведения tiff
+    player = new videoPlayer();
+    connect(this,&view::openTIFF,player,&videoPlayer::openVideo);
+    connect(player,&videoPlayer::numberDir,this,&view::setSizeSlider);
+    connect(this,&view::stopVideo,player,&videoPlayer::stopVideo);
+    connect(this,&view::playVideo,player,&videoPlayer::startVideo);
+    connect(player,&videoPlayer::sendPicture,this,&view::getResult);
+    connect(this,&view::stopVideo,player,&videoPlayer::stopVideo);
+    connect(player,&videoPlayer::numberDir,this,&view::setSizeSlider);
+    connect(player,&videoPlayer::framePosition,this,&view::setPositionSlider);
+    player->start();
 
+    //подключение к пиволсу
     if(RegisterCard((unsigned long)0xA116FD719D83,BOTH_CHANNEL_AND_MARKER))
         stream=true;
     streamConnection();
     enableVideo(false);
-}
 
-void view::paintEvent(QPaintEvent *)
-{
+    //потока обработки данных с пиволс
+    pic=new Picture();
+    connect(pic,&Picture::sendPicture,this,&view::getResult);
+    connect(pic,&Picture::finished,pic,&view::deleteLater);
+    connect(this,&view::pictureStop,pic,&Picture::stopped);
+    connect(this,&view::beginRecord,pic,&Picture::startRecord);
+    connect(this,&view::stopRecord,pic,&Picture::stopRecord);
+    connect(pic,&Picture::sendFigure,this,&view::drawFigure);
 
+    //потоко получения даннхы по пиволс
+    pivols = new Pivolsthread();
+    connect(pivols,&Pivolsthread::sendResult,
+            pic,&Picture::makePicture);
+    connect(pivols,&Pivolsthread::finished,pivols,&Pivolsthread::deleteLater);
+    connect(pivols,&Pivolsthread::stopWork,pic,&Picture::stopped);
+    connect(this,&view::stopPivols,pivols,&Pivolsthread::stopped);
 }
 
 view::~view()
 {
+    //закрытие потоков если они запущены (мне кажеться это надо делать не здесь)
+    if(player->isRunning())
+    {
+        player->exit();
+        player->wait();
+        qDebug()<<"VideoPlayer "<<player->isRunning();
+    }
     if(pic->isRunning())
     {
         pic->exit();
         pic->wait();
-        qDebug()<<pic->isRunning();
+        qDebug()<<"Picture "<<pic->isRunning();
     }
 
     if(pivols->isRunning())
     {
         emit stopPivols();
         pivols->wait();
-        qDebug()<<pivols->isRunning();
+        qDebug()<<"Pivols "<<pivols->isRunning();
     }
 }
 
 void view::closeEvent(QCloseEvent *event)
 {
+    //а здесь (не успел проверить как правильно)
+    if(player->isRunning())
+    {
+        player->exit();
+        player->wait();
+        qDebug()<<"VideoPlayer "<<player->isRunning();
+    }
+    if(pic->isRunning())
+    {
+        pic->exit();
+        pic->wait();
+        qDebug()<<"Picture "<<pic->isRunning();
+    }
+
+    if(pivols->isRunning())
+    {
+        emit stopPivols();
+        pivols->wait();
+        qDebug()<<"Pivols "<<pivols->isRunning();
+    }
+
     emit closed();
     event->accept();
 }
@@ -229,21 +291,24 @@ void view::setColor()
 
 void view::getResult(QImage* image)
 {
+    // установка таблицы цветов
     if (rbw->isChecked()==true) //черно-белый
         image->setColorTable(colorTableRBW);
 
     if (rpse->isChecked()==true)//псевдоцвет
         image->setColorTable(colorTableRPSE);
 
+    //вывод картинки на экран
     lbl->setPixmap(QPixmap::fromImage(*image).scaled(QSize(384,288)));
     setUpdatesEnabled(true);
-    repaint();
+    repaint(); //магическая перерисовка
     setUpdatesEnabled(false);
 }
 void view::startStream()
 {
+    /*
+    //потока обработки данных с пиволс
     pic=new Picture();
-    pivols = new Pivolsthread();
     connect(pic,&Picture::sendPicture,this,&view::getResult);
     connect(pic,&Picture::finished,pic,&view::deleteLater);
     connect(this,&view::pictureStop,pic,&Picture::stopped);
@@ -251,41 +316,65 @@ void view::startStream()
     connect(this,&view::stopRecord,pic,&Picture::stopRecord);
     connect(pic,&Picture::sendFigure,this,&view::drawFigure);
 
+    //потоко получения даннхы по пиволс
+    pivols = new Pivolsthread();
     connect(pivols,&Pivolsthread::sendResult,
             pic,&Picture::makePicture);
     connect(pivols,&Pivolsthread::finished,pivols,&Pivolsthread::deleteLater);
     connect(pivols,&Pivolsthread::stopWork,pic,&Picture::stopped);
     connect(this,&view::stopPivols,pivols,&Pivolsthread::stopped);
+    */
+
+    //запуск потоков для вывода видео потока
+    //может получится так, что программа будет завершаться.
+    //я не понял в чем причина. Надо будет убрать закоментированые выше и убрать это из конструктора
     pic->start();
     pivols->start();
 }
 
 void view::stopStream()
 {
-    pic->exit();
-    pic->wait();
-    qDebug()<<pic->isRunning();
-
-    emit stopPivols();
-    pivols->wait();
-    qDebug()<<pivols->isRunning();
+    //закрытие потоков воспроизведения видеопотка
+    //есть конфликт с мютексом. не успел его решить
+    //придеться тебе придумать что-то :)
+    if(pic->isRunning())
+    {
+        pic->exit();
+        pic->wait();
+        qDebug()<<pic->isRunning();
+    }
+    if(pivols->isRunning())
+    {
+        emit stopPivols();
+        pivols->wait();
+        qDebug()<<pivols->isRunning();
+    }
 
     lblconnection->setText("Поток остановлен");
 }
 
 void view::play()
 {
-
+    //воспроизведение tiff принимает только файлы записанные этой же программой
+    if(videoFile!="")
+    {
+       emit playVideo(videoFile,videoSlider->value());
+    }
+    else
+    {
+        msgBox.setText("Выберите tif файл");
+        msgBox.exec();
+    }
 }
 
 void view::stop()
 {
-
-
+    emit stopVideo();
 }
 
 void view::record()
 {
+    //ничего сложного
     if(videoFile!="")
         if(!recording)
         {
@@ -311,13 +400,18 @@ void view::open()
 {
     videoFile = QFileDialog::getOpenFileName(this,"Выберите файл","C:\\",
                                                           "Любой файл(*)");
-    QRegExp rx("(\\w+.bin)");
-    QString str;
-    int pos = 0;
-    pos = rx.indexIn(videoFile, pos);
-    str = rx.cap(1);
-    lblfile->setText("Выбраный файл: "+str);
-    enableVideo(true);
+    if(videoFile!="")
+    {
+        //отбрасываю лишнее чтобы вывести на экран какой файл открыт
+        QRegExp rx("(\\w+.tif)");
+        QString str;
+        int pos = 0;
+        pos = rx.indexIn(videoFile, pos);
+        str = rx.cap(1);
+        lblfile->setText("Выбраный файл: "+str);
+        emit openTIFF(videoFile.toLocal8Bit().constData());
+
+    }
 }
 
 void view::saveImage()
@@ -413,7 +507,7 @@ void view::drawFigure(unsigned char *buf)
     if(picRow->isChecked()||picColumn->isChecked())
     {
         QPainter p(&paintFigure);
-        p.drawLine(10,0,10,255);
+        p.drawLine(10,0,10,255); //оси и стрелки
         p.drawLine(10,255,384,255);
         p.drawLine(0,10,10,0);
         p.drawLine(20,10,10,0);
@@ -423,13 +517,37 @@ void view::drawFigure(unsigned char *buf)
         row = spinRow->value();
         column = spinColumn->value();
         QPainterPath path;
-        if(picRow->isChecked())
+        if(picRow->isChecked()) //по строке
             for(int i=0;i<384;i++)
                 path.lineTo(i,255-buf[row*384+i]);
 
-        if(picColumn->isChecked())
+        if(picColumn->isChecked()) //по столбцу
             for(int i=0;i<288;i++)
-                path.lineTo(i,255-buf[column+i*384]);
+                path.lineTo(i,255-buf[column+i*384]);//рисование ломанй линии по точкам
         p.drawPath(path);
     }
+}
+
+void view::changeSlider()
+{
+    numberCadr=videoSlider->value();
+    setUpdatesEnabled(true);
+    repaint();
+    setUpdatesEnabled(false);
+}
+
+void view::setSizeSlider(int sizeSlider)
+{
+    if(sizeSlider>0)
+    {
+        videoSlider->setMaximum(sizeSlider);
+        videoSlider->setEnabled(true);
+        enableVideo(true);
+    }
+}
+
+void view::setPositionSlider(int position)
+{
+    videoSlider->setValue(position);
+    repaint();
 }

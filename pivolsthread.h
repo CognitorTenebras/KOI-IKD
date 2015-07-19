@@ -2,7 +2,6 @@
 #define Pivolsthread_H
 
 #include <QThread>
-#include <QReadWriteLock>
 #include "pivols.h"
 
 #define PACKET_SIZE 792

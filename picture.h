@@ -4,7 +4,7 @@
 #include "pivolsthread.h"
 #include "tiffio.h"
 #include "tiff.h"
-#include "resources.h"
+
 
 #include <QThread>
 #include <QImage>

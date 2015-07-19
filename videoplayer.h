@@ -4,8 +4,10 @@
 #include <QThread>
 #include <QTimer>
 #include <QImage>
+#include <QFile>
+#include <QMessageBox>
 
-#include "tiffio.h"
+#include "tiff.h"
 #include "resources.h"
 
 
@@ -25,8 +27,15 @@ class videoPlayer : public QThread
 
     QTimer *timer;
 
-    TIFF *out;
+    QMessageBox mb;
+    QFile s;
     QImage *image;
+    TIFF_Header tiffHeader;
+    TIFF_Tag    IFD;
+    uint nextIFDOffset;
+    QList<uint> listCadr;
+
+    int h, w, bpp;
     unsigned short *sBuffer;
     unsigned char *cPicture;
     unsigned char *picture;
@@ -43,9 +52,9 @@ signals:
     void sendPicture(QImage *);
 public slots:
     void showVideo();
-    void startVideo(QString s, int position);
+    void startVideo(QString filename, int position);
     void stopVideo();
-    void openVideo(QString s);
+    void openVideo(QString filename);
 };
 
 #endif // VIDEOPLAYER_H

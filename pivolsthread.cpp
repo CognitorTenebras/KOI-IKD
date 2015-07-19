@@ -1,8 +1,7 @@
 #include "Pivolsthread.h"
+#include "resources.h"
+
 #include <QMessageBox>
-
-
-extern QMutex lock1, lock2;
 
 Pivolsthread::Pivolsthread(QObject *parent):
     QThread(parent)
@@ -11,16 +10,15 @@ Pivolsthread::Pivolsthread(QObject *parent):
    stop=false;
 
    buffer1= new unsigned char [BUF_SIZE];
+   memset(buffer1,0x0,BUF_SIZE);
    buffer2= new unsigned char [BUF_SIZE];
-
+   memset(buffer2,0x0,BUF_SIZE);
 }
 
 Pivolsthread::~Pivolsthread()
 {
     delete []buffer1;
     delete []buffer2;
-    emit finished();
-    ReleaseCard();
 }
 
 void Pivolsthread::run()
@@ -33,11 +31,10 @@ void Pivolsthread::run()
         if (stop) break;
         if (buffer_flag==false)
         {
-            lock1.lock();
             int countErr=0;
             while(read_byte!=0)
             {
-                count_read_byte = ReadSgBufCard(buffer1+shift, read_byte);
+                count_read_byte = ReadSgBufCard(buffer1+shift, read_byte);//заполнение буфера из пиволса
                 shift = count_read_byte;
                 read_byte-=count_read_byte;
                 if(countErr>3)
@@ -49,6 +46,7 @@ void Pivolsthread::run()
                 }
                 countErr++;
             }
+            lock1.lock();//ждем пока можно будет отправить
             emit sendResult(buffer1,buffer_flag);
             buffer_flag=true;
             count_read_byte=0;
@@ -57,7 +55,7 @@ void Pivolsthread::run()
         }
         else
         {
-            lock2.lock();
+
             int countErr=0;
             while(read_byte!=0)
             {
@@ -73,6 +71,7 @@ void Pivolsthread::run()
                 }
                 countErr++;
             }
+            lock2.lock();
             emit sendResult(buffer2,buffer_flag);
             buffer_flag=false;
             count_read_byte=0;
@@ -80,9 +79,11 @@ void Pivolsthread::run()
             read_byte=BUF_SIZE;
         }
     }
-    //lock1.unlock();
-    //lock2.unlock();
-    ReleaseCard();
+    if(lock1.tryLock())//если закрыто то открыть, но тут что то не так))
+        lock1.unlock();
+    if(lock2.tryLock())
+        lock2.unlock();
+    emit finished();
 }
 
 void Pivolsthread::stopped()
